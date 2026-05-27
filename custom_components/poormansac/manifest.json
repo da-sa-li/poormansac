@@ -1,0 +1,12 @@
+{
+  "domain": "poormansac",
+  "name": "Poor Man's AC",
+  "codeowners": ["@da-sa-li"],
+  "config_flow": true,
+  "documentation": "https://github.com/da-sa-li/poormansac",
+  "integration_type": "helper",
+  "iot_class": "calculated",
+  "issue_tracker": "https://github.com/da-sa-li/poormansac/issues",
+  "requirements": [],
+  "version": "0.1.0"
+}

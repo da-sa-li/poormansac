@@ -1,0 +1,52 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Poor Man's AC",
+        "description": "Entscheidet anhand des totalen Differentials des Hitzeindex, ob direkte adiabate (Verdunstungs-)Kühlung den Hitzeindex eines Raums senkt.",
+        "data": {
+          "name": "Name",
+          "temperature_entity": "Temperatursensor",
+          "humidity_entity": "Sensor für relative Luftfeuchtigkeit"
+        }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Poor Man's AC Einstellungen",
+        "data": {
+          "threshold": "dHI-Schwellwert [°C] (Kühlung empfohlen darunter)",
+          "hysteresis": "Hysterese-Band [°C]",
+          "air_density": "Luftdichte [kg/m³]",
+          "heat_capacity": "Spezifische Wärmekapazität der Luft [J/(kg·K)]"
+        }
+      }
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "cooling_recommended": {
+        "name": "Adiabate Kühlung empfohlen"
+      }
+    },
+    "sensor": {
+      "heat_index": {
+        "name": "Hitzeindex"
+      },
+      "absolute_humidity": {
+        "name": "Absolute Luftfeuchtigkeit"
+      },
+      "d_hi": {
+        "name": "Hitzeindex-Differential"
+      },
+      "d_hi_dt": {
+        "name": "Hitzeindex-Ableitung dHI/dT"
+      },
+      "d_hi_drho": {
+        "name": "Hitzeindex-Ableitung dHI/dρ_w"
+      }
+    }
+  }
+}

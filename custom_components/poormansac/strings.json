@@ -1,0 +1,52 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Poor Man's AC",
+        "description": "Decide whether direct adiabatic (evaporative) cooling lowers the heat index for a room, based on the total differential of the heat index.",
+        "data": {
+          "name": "Name",
+          "temperature_entity": "Temperature sensor",
+          "humidity_entity": "Relative humidity sensor"
+        }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Poor Man's AC settings",
+        "data": {
+          "threshold": "dHI threshold [°C] (cooling recommended below this)",
+          "hysteresis": "Hysteresis band [°C]",
+          "air_density": "Air density [kg/m³]",
+          "heat_capacity": "Specific heat capacity of air [J/(kg·K)]"
+        }
+      }
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "cooling_recommended": {
+        "name": "Adiabatic cooling recommended"
+      }
+    },
+    "sensor": {
+      "heat_index": {
+        "name": "Heat index"
+      },
+      "absolute_humidity": {
+        "name": "Absolute humidity"
+      },
+      "d_hi": {
+        "name": "Heat index differential"
+      },
+      "d_hi_dt": {
+        "name": "Heat index partial dHI/dT"
+      },
+      "d_hi_drho": {
+        "name": "Heat index partial dHI/dρ_w"
+      }
+    }
+  }
+}
