@@ -15,11 +15,9 @@ from . import calc
 from .const import (
     CONF_DRHO_W_DT,
     CONF_HUMIDITY_ENTITY,
-    CONF_HYSTERESIS,
     CONF_TEMPERATURE_ENTITY,
     CONF_THRESHOLD,
     DEFAULT_DRHO_W_DT,
-    DEFAULT_HYSTERESIS,
     DEFAULT_THRESHOLD,
     DOMAIN,
 )
@@ -51,9 +49,7 @@ class PoorMansACCoordinator(DataUpdateCoordinator[PoorMansACData]):
         self._humidity_entity = entry.data[CONF_HUMIDITY_ENTITY]
         options = entry.options
         self._threshold = options.get(CONF_THRESHOLD, DEFAULT_THRESHOLD)
-        self._hysteresis = options.get(CONF_HYSTERESIS, DEFAULT_HYSTERESIS)
         self._drho_w_dt = options.get(CONF_DRHO_W_DT, DEFAULT_DRHO_W_DT)
-        self._recommended = False
 
     async def async_initialize(self) -> None:
         """Subscribe to the source entities and compute the initial state."""
@@ -92,13 +88,6 @@ class PoorMansACCoordinator(DataUpdateCoordinator[PoorMansACData]):
         rho_w = calc.absolute_humidity(t, rh)
         d_hi = calc.d_hi_cooling(t, rho_w, self._drho_w_dt)
 
-        # Cooling improves comfort when dHI is below the threshold. Apply a
-        # symmetric hysteresis band so the binary recommendation does not flap.
-        if self._recommended:
-            self._recommended = d_hi < self._threshold + self._hysteresis
-        else:
-            self._recommended = d_hi < self._threshold - self._hysteresis
-
         return PoorMansACData(
             temperature=t,
             humidity=rh,
@@ -107,5 +96,5 @@ class PoorMansACCoordinator(DataUpdateCoordinator[PoorMansACData]):
             d_hi_dt=calc.d_hi_d_t(t, rho_w),
             d_hi_drho=calc.d_hi_d_rho(t, rho_w),
             d_hi=d_hi,
-            cooling_recommended=self._recommended,
+            cooling_recommended=d_hi < self._threshold,
         )

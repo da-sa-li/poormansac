@@ -18,11 +18,9 @@ from homeassistant.helpers import selector
 from .const import (
     CONF_DRHO_W_DT,
     CONF_HUMIDITY_ENTITY,
-    CONF_HYSTERESIS,
     CONF_TEMPERATURE_ENTITY,
     CONF_THRESHOLD,
     DEFAULT_DRHO_W_DT,
-    DEFAULT_HYSTERESIS,
     DEFAULT_NAME,
     DEFAULT_THRESHOLD,
     DOMAIN,
@@ -84,10 +82,6 @@ class PoorMansACOptionsFlow(OptionsFlow):
                     CONF_THRESHOLD,
                     default=options.get(CONF_THRESHOLD, DEFAULT_THRESHOLD),
                 ): vol.Coerce(float),
-                vol.Optional(
-                    CONF_HYSTERESIS,
-                    default=options.get(CONF_HYSTERESIS, DEFAULT_HYSTERESIS),
-                ): vol.All(vol.Coerce(float), vol.Range(min=0.0)),
                 vol.Optional(
                     CONF_DRHO_W_DT,
                     default=options.get(CONF_DRHO_W_DT, DEFAULT_DRHO_W_DT),
