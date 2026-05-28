@@ -19,8 +19,7 @@
         "data": {
           "threshold": "dHI-Schwellwert [°C] (Kühlung empfohlen darunter)",
           "hysteresis": "Hysterese-Band [°C]",
-          "air_density": "Luftdichte [kg/m³]",
-          "heat_capacity": "Spezifische Wärmekapazität der Luft [J/(kg·K)]"
+          "drho_w_dt": "Isenthalpe Steigung dρ_w/dT [g/(m³·K)]"
         }
       }
     }

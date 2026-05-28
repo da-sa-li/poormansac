@@ -13,14 +13,12 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from . import calc
 from .const import (
-    CONF_AIR_DENSITY,
-    CONF_HEAT_CAPACITY,
+    CONF_DRHO_W_DT,
     CONF_HUMIDITY_ENTITY,
     CONF_HYSTERESIS,
     CONF_TEMPERATURE_ENTITY,
     CONF_THRESHOLD,
-    DEFAULT_AIR_DENSITY,
-    DEFAULT_HEAT_CAPACITY,
+    DEFAULT_DRHO_W_DT,
     DEFAULT_HYSTERESIS,
     DEFAULT_THRESHOLD,
     DOMAIN,
@@ -54,8 +52,7 @@ class PoorMansACCoordinator(DataUpdateCoordinator[PoorMansACData]):
         options = entry.options
         self._threshold = options.get(CONF_THRESHOLD, DEFAULT_THRESHOLD)
         self._hysteresis = options.get(CONF_HYSTERESIS, DEFAULT_HYSTERESIS)
-        self._air_density = options.get(CONF_AIR_DENSITY, DEFAULT_AIR_DENSITY)
-        self._heat_capacity = options.get(CONF_HEAT_CAPACITY, DEFAULT_HEAT_CAPACITY)
+        self._drho_w_dt = options.get(CONF_DRHO_W_DT, DEFAULT_DRHO_W_DT)
         self._recommended = False
 
     async def async_initialize(self) -> None:
@@ -93,7 +90,7 @@ class PoorMansACCoordinator(DataUpdateCoordinator[PoorMansACData]):
             return PoorMansACData(temperature=t, humidity=rh)
 
         rho_w = calc.absolute_humidity(t, rh)
-        d_hi = calc.d_hi_cooling(t, rho_w, self._air_density, self._heat_capacity)
+        d_hi = calc.d_hi_cooling(t, rho_w, self._drho_w_dt)
 
         # Cooling improves comfort when dHI is below the threshold. Apply a
         # symmetric hysteresis band so the binary recommendation does not flap.
@@ -108,7 +105,7 @@ class PoorMansACCoordinator(DataUpdateCoordinator[PoorMansACData]):
             absolute_humidity=rho_w,
             heat_index=calc.heat_index(t, rh),
             d_hi_dt=calc.d_hi_d_t(t, rho_w),
-            d_hi_drho=calc.d_hi_d_rho(t),
+            d_hi_drho=calc.d_hi_d_rho(t, rho_w),
             d_hi=d_hi,
             cooling_recommended=self._recommended,
         )

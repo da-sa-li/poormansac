@@ -19,8 +19,7 @@
         "data": {
           "threshold": "dHI threshold [°C] (cooling recommended below this)",
           "hysteresis": "Hysteresis band [°C]",
-          "air_density": "Air density [kg/m³]",
-          "heat_capacity": "Specific heat capacity of air [J/(kg·K)]"
+          "drho_w_dt": "Isenthalpic slope dρ_w/dT [g/(m³·K)]"
         }
       }
     }

@@ -16,14 +16,12 @@ from homeassistant.core import callback
 from homeassistant.helpers import selector
 
 from .const import (
-    CONF_AIR_DENSITY,
-    CONF_HEAT_CAPACITY,
+    CONF_DRHO_W_DT,
     CONF_HUMIDITY_ENTITY,
     CONF_HYSTERESIS,
     CONF_TEMPERATURE_ENTITY,
     CONF_THRESHOLD,
-    DEFAULT_AIR_DENSITY,
-    DEFAULT_HEAT_CAPACITY,
+    DEFAULT_DRHO_W_DT,
     DEFAULT_HYSTERESIS,
     DEFAULT_NAME,
     DEFAULT_THRESHOLD,
@@ -71,7 +69,7 @@ class PoorMansACConfigFlow(ConfigFlow, domain=DOMAIN):
 
 
 class PoorMansACOptionsFlow(OptionsFlow):
-    """Handle tuning of thresholds and moist-air constants."""
+    """Tune thresholds and the isenthalpic slope."""
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
@@ -91,13 +89,9 @@ class PoorMansACOptionsFlow(OptionsFlow):
                     default=options.get(CONF_HYSTERESIS, DEFAULT_HYSTERESIS),
                 ): vol.All(vol.Coerce(float), vol.Range(min=0.0)),
                 vol.Optional(
-                    CONF_AIR_DENSITY,
-                    default=options.get(CONF_AIR_DENSITY, DEFAULT_AIR_DENSITY),
-                ): vol.All(vol.Coerce(float), vol.Range(min=0.1)),
-                vol.Optional(
-                    CONF_HEAT_CAPACITY,
-                    default=options.get(CONF_HEAT_CAPACITY, DEFAULT_HEAT_CAPACITY),
-                ): vol.All(vol.Coerce(float), vol.Range(min=1.0)),
+                    CONF_DRHO_W_DT,
+                    default=options.get(CONF_DRHO_W_DT, DEFAULT_DRHO_W_DT),
+                ): vol.All(vol.Coerce(float), vol.Range(max=0.0)),
             }
         )
         return self.async_show_form(step_id="init", data_schema=schema)
