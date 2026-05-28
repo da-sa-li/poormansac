@@ -18,8 +18,8 @@
         "title": "Poor Man's AC Einstellungen",
         "data": {
           "threshold": "dHI-Schwellwert [°C] (Kühlung empfohlen darunter)",
-          "hysteresis": "Hysterese-Band [°C]",
-          "drho_w_dt": "Isenthalpe Steigung dρ_w/dT [g/(m³·K)]"
+          "dx_dt": "Isenthalpe Steigung dx/dT [g_Wasser/(kg_Luft·K)]",
+          "pressure": "Umgebungsdruck [hPa]"
         }
       }
     }
@@ -37,14 +37,17 @@
       "absolute_humidity": {
         "name": "Absolute Luftfeuchtigkeit"
       },
+      "mixing_ratio": {
+        "name": "Wasserbeladung"
+      },
       "d_hi": {
         "name": "Hitzeindex-Differential"
       },
       "d_hi_dt": {
         "name": "Hitzeindex-Ableitung dHI/dT"
       },
-      "d_hi_drho": {
-        "name": "Hitzeindex-Ableitung dHI/dρ_w"
+      "d_hi_dx": {
+        "name": "Hitzeindex-Ableitung dHI/dx"
       }
     }
   }

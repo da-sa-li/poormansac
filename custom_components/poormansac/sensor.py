@@ -47,6 +47,15 @@ SENSORS: tuple[PoorMansACSensorDescription, ...] = (
         value_fn=lambda data: data.absolute_humidity,
     ),
     PoorMansACSensorDescription(
+        key="mixing_ratio",
+        translation_key="mixing_ratio",
+        native_unit_of_measurement="g/kg",
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=2,
+        icon="mdi:water-percent",
+        value_fn=lambda data: data.mixing_ratio,
+    ),
+    PoorMansACSensorDescription(
         key="d_hi",
         translation_key="d_hi",
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
@@ -65,13 +74,13 @@ SENSORS: tuple[PoorMansACSensorDescription, ...] = (
         value_fn=lambda data: data.d_hi_dt,
     ),
     PoorMansACSensorDescription(
-        key="d_hi_drho",
-        translation_key="d_hi_drho",
+        key="d_hi_dx",
+        translation_key="d_hi_dx",
         state_class=SensorStateClass.MEASUREMENT,
-        suggested_display_precision=4,
+        suggested_display_precision=2,
         entity_registry_enabled_default=False,
         icon="mdi:function-variant",
-        value_fn=lambda data: data.d_hi_drho,
+        value_fn=lambda data: data.d_hi_dx,
     ),
 )
 
