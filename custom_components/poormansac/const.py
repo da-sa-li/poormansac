@@ -7,7 +7,8 @@ DOMAIN = "poormansac"
 CONF_TEMPERATURE_ENTITY = "temperature_entity"
 CONF_HUMIDITY_ENTITY = "humidity_entity"
 CONF_THRESHOLD = "threshold"
-CONF_DRHO_W_DT = "drho_w_dt"
+CONF_DX_DT = "dx_dt"
+CONF_PRESSURE = "pressure"
 
 DEFAULT_NAME = "Poor Man's AC"
 
@@ -16,7 +17,10 @@ DEFAULT_NAME = "Poor Man's AC"
 # break-even point (negative = comfort improves).
 DEFAULT_THRESHOLD = 0.0
 
-# Slope of the isenthalpic process line drho_w/dT [g/(m^3*K)]. Negative:
-# as the air cools (dT < 0) the water vapour density rises (drho_w > 0).
-# Default is the first-order approximation from the project specification.
-DEFAULT_DRHO_W_DT = -0.34
+# Slope of the isenthalpic process line dx/dT in g_water/(kg_air*K). Negative:
+# as the air cools (dT < 0) the water loading rises (dx > 0). Default is the
+# first-order approximation from the project specification.
+DEFAULT_DX_DT = -0.41
+
+# Ambient pressure in hectopascals used when computing the mixing ratio x.
+DEFAULT_PRESSURE_HPA = 1013.25

@@ -13,11 +13,13 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from . import calc
 from .const import (
-    CONF_DRHO_W_DT,
+    CONF_DX_DT,
     CONF_HUMIDITY_ENTITY,
+    CONF_PRESSURE,
     CONF_TEMPERATURE_ENTITY,
     CONF_THRESHOLD,
-    DEFAULT_DRHO_W_DT,
+    DEFAULT_DX_DT,
+    DEFAULT_PRESSURE_HPA,
     DEFAULT_THRESHOLD,
     DOMAIN,
 )
@@ -32,9 +34,10 @@ class PoorMansACData:
     temperature: float | None = None
     humidity: float | None = None
     absolute_humidity: float | None = None
+    mixing_ratio: float | None = None
     heat_index: float | None = None
     d_hi_dt: float | None = None
-    d_hi_drho: float | None = None
+    d_hi_dx: float | None = None
     d_hi: float | None = None
     cooling_recommended: bool | None = None
 
@@ -49,7 +52,11 @@ class PoorMansACCoordinator(DataUpdateCoordinator[PoorMansACData]):
         self._humidity_entity = entry.data[CONF_HUMIDITY_ENTITY]
         options = entry.options
         self._threshold = options.get(CONF_THRESHOLD, DEFAULT_THRESHOLD)
-        self._drho_w_dt = options.get(CONF_DRHO_W_DT, DEFAULT_DRHO_W_DT)
+        # Stored option is in g_water/(kg_air*K); the formula needs the pure
+        # ratio kg_water/(kg_air*K).
+        self._dx_dt = options.get(CONF_DX_DT, DEFAULT_DX_DT) / 1000.0
+        # Stored option is in hPa; the mixing-ratio formula needs Pa.
+        self._pressure = options.get(CONF_PRESSURE, DEFAULT_PRESSURE_HPA) * 100.0
 
     async def async_initialize(self) -> None:
         """Subscribe to the source entities and compute the initial state."""
@@ -85,16 +92,17 @@ class PoorMansACCoordinator(DataUpdateCoordinator[PoorMansACData]):
         if t is None or rh is None:
             return PoorMansACData(temperature=t, humidity=rh)
 
-        rho_w = calc.absolute_humidity(t, rh)
-        d_hi = calc.d_hi_cooling(t, rho_w, self._drho_w_dt)
+        x = calc.mixing_ratio(t, rh, self._pressure)
+        d_hi = calc.d_hi_cooling(t, x, self._dx_dt)
 
         return PoorMansACData(
             temperature=t,
             humidity=rh,
-            absolute_humidity=rho_w,
-            heat_index=calc.heat_index(t, rh),
-            d_hi_dt=calc.d_hi_d_t(t, rho_w),
-            d_hi_drho=calc.d_hi_d_rho(t, rho_w),
+            absolute_humidity=calc.absolute_humidity(t, rh),
+            mixing_ratio=x * 1000.0,  # expose in g_water/kg_air
+            heat_index=calc.heat_index(t, x),
+            d_hi_dt=calc.d_hi_d_t(t, x),
+            d_hi_dx=calc.d_hi_d_x(t, x),
             d_hi=d_hi,
             cooling_recommended=d_hi < self._threshold,
         )

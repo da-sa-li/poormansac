@@ -18,8 +18,8 @@
         "title": "Poor Man's AC settings",
         "data": {
           "threshold": "dHI threshold [°C] (cooling recommended below this)",
-          "hysteresis": "Hysteresis band [°C]",
-          "drho_w_dt": "Isenthalpic slope dρ_w/dT [g/(m³·K)]"
+          "dx_dt": "Isenthalpic slope dx/dT [g_water/(kg_air·K)]",
+          "pressure": "Ambient pressure [hPa]"
         }
       }
     }
@@ -37,14 +37,17 @@
       "absolute_humidity": {
         "name": "Absolute humidity"
       },
+      "mixing_ratio": {
+        "name": "Water loading"
+      },
       "d_hi": {
         "name": "Heat index differential"
       },
       "d_hi_dt": {
         "name": "Heat index partial dHI/dT"
       },
-      "d_hi_drho": {
-        "name": "Heat index partial dHI/dρ_w"
+      "d_hi_dx": {
+        "name": "Heat index partial dHI/dx"
       }
     }
   }

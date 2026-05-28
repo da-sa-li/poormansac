@@ -16,12 +16,14 @@ from homeassistant.core import callback
 from homeassistant.helpers import selector
 
 from .const import (
-    CONF_DRHO_W_DT,
+    CONF_DX_DT,
     CONF_HUMIDITY_ENTITY,
+    CONF_PRESSURE,
     CONF_TEMPERATURE_ENTITY,
     CONF_THRESHOLD,
-    DEFAULT_DRHO_W_DT,
+    DEFAULT_DX_DT,
     DEFAULT_NAME,
+    DEFAULT_PRESSURE_HPA,
     DEFAULT_THRESHOLD,
     DOMAIN,
 )
@@ -67,7 +69,7 @@ class PoorMansACConfigFlow(ConfigFlow, domain=DOMAIN):
 
 
 class PoorMansACOptionsFlow(OptionsFlow):
-    """Tune thresholds and the isenthalpic slope."""
+    """Tune the threshold, the isenthalpic slope and ambient pressure."""
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
@@ -83,9 +85,13 @@ class PoorMansACOptionsFlow(OptionsFlow):
                     default=options.get(CONF_THRESHOLD, DEFAULT_THRESHOLD),
                 ): vol.Coerce(float),
                 vol.Optional(
-                    CONF_DRHO_W_DT,
-                    default=options.get(CONF_DRHO_W_DT, DEFAULT_DRHO_W_DT),
+                    CONF_DX_DT,
+                    default=options.get(CONF_DX_DT, DEFAULT_DX_DT),
                 ): vol.All(vol.Coerce(float), vol.Range(max=0.0)),
+                vol.Optional(
+                    CONF_PRESSURE,
+                    default=options.get(CONF_PRESSURE, DEFAULT_PRESSURE_HPA),
+                ): vol.All(vol.Coerce(float), vol.Range(min=500.0, max=1100.0)),
             }
         )
         return self.async_show_form(step_id="init", data_schema=schema)
