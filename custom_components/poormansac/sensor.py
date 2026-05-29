@@ -11,13 +11,15 @@ from homeassistant.components.sensor import (
     SensorEntityDescription,
     SensorStateClass,
 )
-from homeassistant.const import UnitOfTemperature
+from homeassistant.const import EntityCategory, UnitOfTemperature
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import PoorMansACConfigEntry
 from .coordinator import PoorMansACData
 from .entity import PoorMansACEntity
+
+PARALLEL_UPDATES = 0
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -69,6 +71,7 @@ SENSORS: tuple[PoorMansACSensorDescription, ...] = (
         translation_key="d_hi_dt",
         state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=4,
+        entity_category=EntityCategory.DIAGNOSTIC,
         entity_registry_enabled_default=False,
         icon="mdi:function-variant",
         value_fn=lambda data: data.d_hi_dt,
@@ -78,6 +81,7 @@ SENSORS: tuple[PoorMansACSensorDescription, ...] = (
         translation_key="d_hi_dx",
         state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=2,
+        entity_category=EntityCategory.DIAGNOSTIC,
         entity_registry_enabled_default=False,
         icon="mdi:function-variant",
         value_fn=lambda data: data.d_hi_dx,
