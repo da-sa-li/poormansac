@@ -28,7 +28,12 @@ _R_V = 461.5  # specific gas constant of water vapour, J/(kg*K)
 _EPSILON = 0.621945
 
 
-def saturation_vapour_pressure(t: float) -> float:
+def pressure_from_elevation(elevation: float) -> float:
+    """Ambient pressure in Pa from elevation in metres (ISA standard atmosphere)."""
+    return 101325.0 * (1.0 - 2.25577e-5 * elevation) ** 5.25588
+
+
+
     """Saturation vapour pressure over water in Pa (Magnus formula)."""
     return 611.2 * math.exp(17.62 * t / (243.12 + t))
 

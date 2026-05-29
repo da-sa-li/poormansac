@@ -6,6 +6,7 @@ DOMAIN = "poormansac"
 
 CONF_TEMPERATURE_ENTITY = "temperature_entity"
 CONF_HUMIDITY_ENTITY = "humidity_entity"
+CONF_PRESSURE_ENTITY = "pressure_entity"
 CONF_THRESHOLD = "threshold"
 CONF_DX_DT = "dx_dt"
 CONF_PRESSURE = "pressure"
@@ -23,4 +24,6 @@ DEFAULT_THRESHOLD = 0.0
 DEFAULT_DX_DT = -0.41
 
 # Ambient pressure in hectopascals used when computing the mixing ratio x.
+# Acts as the fallback whenever no pressure sensor is configured or the
+# configured sensor is unavailable.
 DEFAULT_PRESSURE_HPA = 1013.25
