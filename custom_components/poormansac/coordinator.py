@@ -6,16 +6,24 @@ import logging
 from dataclasses import dataclass
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
+from homeassistant.const import (
+    ATTR_UNIT_OF_MEASUREMENT,
+    STATE_UNAVAILABLE,
+    STATE_UNKNOWN,
+    UnitOfPressure,
+)
 from homeassistant.core import Event, EventStateChangedData, HomeAssistant, callback
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
+from homeassistant.util.unit_conversion import PressureConverter
 
 from . import calc
 from .const import (
     CONF_DX_DT,
     CONF_HUMIDITY_ENTITY,
     CONF_PRESSURE,
+    CONF_PRESSURE_ENTITY,
     CONF_TEMPERATURE_ENTITY,
     CONF_THRESHOLD,
     DEFAULT_DX_DT,
@@ -50,20 +58,29 @@ class PoorMansACCoordinator(DataUpdateCoordinator[PoorMansACData]):
         self.entry = entry
         self._temperature_entity = entry.data[CONF_TEMPERATURE_ENTITY]
         self._humidity_entity = entry.data[CONF_HUMIDITY_ENTITY]
+        # Optional: when set, the ambient pressure is read live from this
+        # sensor; otherwise the static fallback below is used.
+        self._pressure_entity = entry.data.get(CONF_PRESSURE_ENTITY)
         options = entry.options
         self._threshold = options.get(CONF_THRESHOLD, DEFAULT_THRESHOLD)
         # Stored option is in g_water/(kg_air*K); the formula needs the pure
         # ratio kg_water/(kg_air*K).
         self._dx_dt = options.get(CONF_DX_DT, DEFAULT_DX_DT) / 1000.0
-        # Stored option is in hPa; the mixing-ratio formula needs Pa.
-        self._pressure = options.get(CONF_PRESSURE, DEFAULT_PRESSURE_HPA) * 100.0
+        # Stored option is in hPa; the mixing-ratio formula needs Pa. Used as
+        # the fallback when no pressure sensor is configured or available.
+        self._pressure_fallback = (
+            options.get(CONF_PRESSURE, DEFAULT_PRESSURE_HPA) * 100.0
+        )
 
     async def async_initialize(self) -> None:
         """Subscribe to the source entities and compute the initial state."""
+        tracked = [self._temperature_entity, self._humidity_entity]
+        if self._pressure_entity is not None:
+            tracked.append(self._pressure_entity)
         self.entry.async_on_unload(
             async_track_state_change_event(
                 self.hass,
-                [self._temperature_entity, self._humidity_entity],
+                tracked,
                 self._handle_source_change,
             )
         )
@@ -86,13 +103,35 @@ class PoorMansACCoordinator(DataUpdateCoordinator[PoorMansACData]):
             _LOGGER.debug("Cannot parse %s state '%s'", entity_id, state.state)
             return None
 
+    def _read_pressure(self) -> float:
+        """Ambient pressure in Pa from the sensor, else the static fallback."""
+        if self._pressure_entity is None:
+            return self._pressure_fallback
+
+        value = self._read(self._pressure_entity)
+        if value is None:
+            return self._pressure_fallback
+
+        state = self.hass.states.get(self._pressure_entity)
+        unit = state.attributes.get(ATTR_UNIT_OF_MEASUREMENT) if state else None
+        try:
+            return PressureConverter.convert(value, unit, UnitOfPressure.PA)
+        except (HomeAssistantError, ValueError):
+            _LOGGER.debug(
+                "Cannot convert pressure %s from unit '%s'; using fallback",
+                value,
+                unit,
+            )
+            return self._pressure_fallback
+
     def _compute(self) -> PoorMansACData:
         t = self._read(self._temperature_entity)
         rh = self._read(self._humidity_entity)
         if t is None or rh is None:
             return PoorMansACData(temperature=t, humidity=rh)
 
-        x = calc.mixing_ratio(t, rh, self._pressure)
+        pressure = self._read_pressure()
+        x = calc.mixing_ratio(t, rh, pressure)
         d_hi = calc.d_hi_cooling(t, x, self._dx_dt)
 
         return PoorMansACData(

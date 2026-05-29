@@ -7,7 +7,11 @@
         "data": {
           "name": "Name",
           "temperature_entity": "Temperatursensor",
-          "humidity_entity": "Sensor für relative Luftfeuchtigkeit"
+          "humidity_entity": "Sensor für relative Luftfeuchtigkeit",
+          "pressure_entity": "Umgebungsdrucksensor (optional)"
+        },
+        "data_description": {
+          "pressure_entity": "Optional. Wenn leer oder nicht verfügbar, wird der Ersatzdruck aus den Optionen verwendet."
         }
       }
     }
@@ -19,7 +23,7 @@
         "data": {
           "threshold": "dHI-Schwellwert [°C] (Kühlung empfohlen darunter)",
           "dx_dt": "Isenthalpe Steigung dx/dT [g_Wasser/(kg_Luft·K)]",
-          "pressure": "Umgebungsdruck [hPa]"
+          "pressure": "Ersatz-Umgebungsdruck [hPa] (ohne Drucksensor verwendet)"
         }
       }
     }

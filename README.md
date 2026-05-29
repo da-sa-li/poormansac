@@ -11,6 +11,8 @@ along the adiabatic cooling path as the decision criterion.
 
 - a temperature sensor (°C)
 - a relative humidity sensor (%)
+- optionally an ambient pressure sensor; without one (or while it is
+  unavailable) the fallback pressure from the options is used
 
 ## What it computes
 
@@ -38,7 +40,8 @@ the heat index ⇒ recommended.**
 Copy `custom_components/poormansac` into your Home Assistant `config` folder (or
 add this repository to HACS as a custom repository), restart, then add the
 integration via **Settings → Devices & Services → Add Integration → Poor Man's
-AC** and pick the temperature and humidity sensors.
+AC** and pick the temperature and humidity sensors, plus an optional ambient
+pressure sensor.
 
 ## Options
 

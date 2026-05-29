@@ -7,7 +7,11 @@
         "data": {
           "name": "Name",
           "temperature_entity": "Temperature sensor",
-          "humidity_entity": "Relative humidity sensor"
+          "humidity_entity": "Relative humidity sensor",
+          "pressure_entity": "Ambient pressure sensor (optional)"
+        },
+        "data_description": {
+          "pressure_entity": "Optional. If left empty or unavailable, the fallback pressure from the options is used."
         }
       }
     }
@@ -19,7 +23,7 @@
         "data": {
           "threshold": "dHI threshold [°C] (cooling recommended below this)",
           "dx_dt": "Isenthalpic slope dx/dT [g_water/(kg_air·K)]",
-          "pressure": "Ambient pressure [hPa]"
+          "pressure": "Fallback ambient pressure [hPa] (used without a pressure sensor)"
         }
       }
     }

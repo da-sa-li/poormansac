@@ -19,6 +19,7 @@ from .const import (
     CONF_DX_DT,
     CONF_HUMIDITY_ENTITY,
     CONF_PRESSURE,
+    CONF_PRESSURE_ENTITY,
     CONF_TEMPERATURE_ENTITY,
     CONF_THRESHOLD,
     DEFAULT_DX_DT,
@@ -34,6 +35,11 @@ _TEMPERATURE_SELECTOR = selector.EntitySelector(
 _HUMIDITY_SELECTOR = selector.EntitySelector(
     selector.EntitySelectorConfig(domain="sensor", device_class="humidity")
 )
+_PRESSURE_SELECTOR = selector.EntitySelector(
+    selector.EntitySelectorConfig(
+        domain="sensor", device_class=["atmospheric_pressure", "pressure"]
+    )
+)
 
 
 class PoorMansACConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -45,12 +51,16 @@ class PoorMansACConfigFlow(ConfigFlow, domain=DOMAIN):
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         if user_input is not None:
+            data = {
+                CONF_TEMPERATURE_ENTITY: user_input[CONF_TEMPERATURE_ENTITY],
+                CONF_HUMIDITY_ENTITY: user_input[CONF_HUMIDITY_ENTITY],
+            }
+            # The pressure sensor is optional; only store it when supplied.
+            if user_input.get(CONF_PRESSURE_ENTITY):
+                data[CONF_PRESSURE_ENTITY] = user_input[CONF_PRESSURE_ENTITY]
             return self.async_create_entry(
                 title=user_input.get(CONF_NAME, DEFAULT_NAME),
-                data={
-                    CONF_TEMPERATURE_ENTITY: user_input[CONF_TEMPERATURE_ENTITY],
-                    CONF_HUMIDITY_ENTITY: user_input[CONF_HUMIDITY_ENTITY],
-                },
+                data=data,
             )
 
         schema = vol.Schema(
@@ -58,6 +68,7 @@ class PoorMansACConfigFlow(ConfigFlow, domain=DOMAIN):
                 vol.Required(CONF_NAME, default=DEFAULT_NAME): str,
                 vol.Required(CONF_TEMPERATURE_ENTITY): _TEMPERATURE_SELECTOR,
                 vol.Required(CONF_HUMIDITY_ENTITY): _HUMIDITY_SELECTOR,
+                vol.Optional(CONF_PRESSURE_ENTITY): _PRESSURE_SELECTOR,
             }
         )
         return self.async_show_form(step_id="user", data_schema=schema)
@@ -69,7 +80,11 @@ class PoorMansACConfigFlow(ConfigFlow, domain=DOMAIN):
 
 
 class PoorMansACOptionsFlow(OptionsFlow):
-    """Tune the threshold, the isenthalpic slope and ambient pressure."""
+    """Tune the threshold, the isenthalpic slope and the fallback pressure.
+
+    The ambient pressure here is only used when no pressure sensor was
+    configured or the configured sensor is unavailable.
+    """
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
