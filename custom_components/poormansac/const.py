@@ -8,8 +8,6 @@ CONF_TEMPERATURE_ENTITY = "temperature_entity"
 CONF_HUMIDITY_ENTITY = "humidity_entity"
 CONF_PRESSURE_ENTITY = "pressure_entity"
 CONF_THRESHOLD = "threshold"
-CONF_DX_DT = "dx_dt"
-CONF_PRESSURE = "pressure"
 
 DEFAULT_NAME = "Poor Man's AC"
 

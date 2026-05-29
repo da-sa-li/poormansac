@@ -11,7 +11,7 @@
           "pressure_entity": "Umgebungsdrucksensor (optional)"
         },
         "data_description": {
-          "pressure_entity": "Optional. Wenn leer oder nicht verfügbar, wird der Ersatzdruck aus den Optionen verwendet."
+          "pressure_entity": "Optional. Wenn leer oder nicht verfügbar, wird der Druck aus der konfigurierten Höhe abgeleitet oder fällt auf Standardatmosphäre (1013,25 hPa) zurück."
         }
       }
     }
@@ -21,9 +21,7 @@
       "init": {
         "title": "Poor Man's AC Einstellungen",
         "data": {
-          "threshold": "dHI-Schwellwert [°C] (Kühlung empfohlen darunter)",
-          "dx_dt": "Isenthalpe Steigung dx/dT [g_Wasser/(kg_Luft·K)]",
-          "pressure": "Ersatz-Umgebungsdruck [hPa] (ohne Drucksensor verwendet)"
+          "threshold": "dHI-Schwellwert [°C] (Kühlung empfohlen darunter)"
         }
       }
     }

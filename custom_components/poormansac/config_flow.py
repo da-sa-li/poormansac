@@ -16,15 +16,11 @@ from homeassistant.core import callback
 from homeassistant.helpers import selector
 
 from .const import (
-    CONF_DX_DT,
     CONF_HUMIDITY_ENTITY,
-    CONF_PRESSURE,
     CONF_PRESSURE_ENTITY,
     CONF_TEMPERATURE_ENTITY,
     CONF_THRESHOLD,
-    DEFAULT_DX_DT,
     DEFAULT_NAME,
-    DEFAULT_PRESSURE_HPA,
     DEFAULT_THRESHOLD,
     DOMAIN,
 )
@@ -80,11 +76,7 @@ class PoorMansACConfigFlow(ConfigFlow, domain=DOMAIN):
 
 
 class PoorMansACOptionsFlow(OptionsFlow):
-    """Tune the threshold, the isenthalpic slope and the fallback pressure.
-
-    The ambient pressure here is only used when no pressure sensor was
-    configured or the configured sensor is unavailable.
-    """
+    """Tune the dHI threshold."""
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
@@ -99,14 +91,6 @@ class PoorMansACOptionsFlow(OptionsFlow):
                     CONF_THRESHOLD,
                     default=options.get(CONF_THRESHOLD, DEFAULT_THRESHOLD),
                 ): vol.Coerce(float),
-                vol.Optional(
-                    CONF_DX_DT,
-                    default=options.get(CONF_DX_DT, DEFAULT_DX_DT),
-                ): vol.All(vol.Coerce(float), vol.Range(max=0.0)),
-                vol.Optional(
-                    CONF_PRESSURE,
-                    default=options.get(CONF_PRESSURE, DEFAULT_PRESSURE_HPA),
-                ): vol.All(vol.Coerce(float), vol.Range(min=500.0, max=1100.0)),
             }
         )
         return self.async_show_form(step_id="init", data_schema=schema)
