@@ -104,25 +104,34 @@ class PoorMansACCoordinator(DataUpdateCoordinator[PoorMansACData]):
             return None
 
     def _read_pressure(self) -> float:
-        """Ambient pressure in Pa from the sensor, else the static fallback."""
-        if self._pressure_entity is None:
-            return self._pressure_fallback
+        """Ambient pressure in Pa.
 
-        value = self._read(self._pressure_entity)
-        if value is None:
-            return self._pressure_fallback
+        Priority:
+        1. Configured sensor entity (live reading, unit-converted).
+        2. HA's configured elevation via the ISA barometric formula.
+        3. Static fallback value from the options (default 1013.25 hPa).
+        """
+        if self._pressure_entity is not None:
+            value = self._read(self._pressure_entity)
+            if value is not None:
+                state = self.hass.states.get(self._pressure_entity)
+                unit = (
+                    state.attributes.get(ATTR_UNIT_OF_MEASUREMENT) if state else None
+                )
+                try:
+                    return PressureConverter.convert(value, unit, UnitOfPressure.PA)
+                except (HomeAssistantError, ValueError):
+                    _LOGGER.debug(
+                        "Cannot convert pressure %s from unit '%s'; trying elevation",
+                        value,
+                        unit,
+                    )
 
-        state = self.hass.states.get(self._pressure_entity)
-        unit = state.attributes.get(ATTR_UNIT_OF_MEASUREMENT) if state else None
-        try:
-            return PressureConverter.convert(value, unit, UnitOfPressure.PA)
-        except (HomeAssistantError, ValueError):
-            _LOGGER.debug(
-                "Cannot convert pressure %s from unit '%s'; using fallback",
-                value,
-                unit,
-            )
-            return self._pressure_fallback
+        elevation = self.hass.config.elevation
+        if elevation is not None:
+            return calc.pressure_from_elevation(elevation)
+
+        return self._pressure_fallback
 
     def _compute(self) -> PoorMansACData:
         t = self._read(self._temperature_entity)
