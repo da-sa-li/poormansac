@@ -29,7 +29,7 @@ the heat index ⇒ recommended.**
 
 ## Entities
 
-- **binary_sensor** – `Adiabatic cooling recommended` (with hysteresis)
+- **binary_sensor** – `Adiabatic cooling recommended`
 - **sensor** – `Heat index`, `Absolute humidity`, `Heat index differential (dHI)`
 - diagnostic sensors `dHI/dT` and `dHI/dρ_w` (disabled by default)
 
@@ -42,5 +42,5 @@ AC** and pick the temperature and humidity sensors.
 
 ## Options
 
-`Settings → … → Configure`: `dHI` threshold, hysteresis band, and the moist-air
-constants (air density, specific heat capacity) used in the energy balance.
+`Settings → … → Configure`: `dHI` threshold and the moist-air constants (air
+density, specific heat capacity) used in the energy balance.
