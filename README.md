@@ -33,7 +33,7 @@ the heat index ⇒ recommended.**
 
 - **binary_sensor** – `Adiabatic cooling recommended`
 - **sensor** – `Heat index`, `Absolute humidity`, `Heat index differential (dHI)`
-- diagnostic sensors `dHI/dT` and `dHI/dρ_w` (disabled by default)
+- diagnostic sensors `dHI/dT` and `dHI/dx` (disabled by default)
 
 ## Installation
 
@@ -45,5 +45,5 @@ pressure sensor.
 
 ## Options
 
-`Settings → … → Configure`: `dHI` threshold and the moist-air constants (air
-density, specific heat capacity) used in the energy balance.
+`Settings → … → Configure`: the `dHI` threshold below which cooling is
+recommended.

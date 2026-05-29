@@ -52,7 +52,7 @@ class PoorMansACCoordinator(DataUpdateCoordinator[PoorMansACData]):
     """Recomputes derived values whenever a source sensor changes."""
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
-        super().__init__(hass, _LOGGER, name=DOMAIN)
+        super().__init__(hass, _LOGGER, name=DOMAIN, config_entry=entry)
         self.entry = entry
         self._temperature_entity = entry.data[CONF_TEMPERATURE_ENTITY]
         self._humidity_entity = entry.data[CONF_HUMIDITY_ENTITY]
