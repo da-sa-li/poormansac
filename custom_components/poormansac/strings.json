@@ -11,7 +11,7 @@
           "pressure_entity": "Ambient pressure sensor (optional)"
         },
         "data_description": {
-          "pressure_entity": "Optional. If left empty or unavailable, the fallback pressure from the options is used."
+          "pressure_entity": "Optional. If left empty or unavailable, the pressure is derived from the configured elevation or falls back to standard atmosphere (1013.25 hPa)."
         }
       }
     }
@@ -21,9 +21,7 @@
       "init": {
         "title": "Poor Man's AC settings",
         "data": {
-          "threshold": "dHI threshold [°C] (cooling recommended below this)",
-          "dx_dt": "Isenthalpic slope dx/dT [g_water/(kg_air·K)]",
-          "pressure": "Fallback ambient pressure [hPa] (used without a pressure sensor)"
+          "threshold": "dHI threshold [°C] (cooling recommended below this)"
         }
       }
     }

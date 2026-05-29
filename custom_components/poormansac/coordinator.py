@@ -20,9 +20,7 @@ from homeassistant.util.unit_conversion import PressureConverter
 
 from . import calc
 from .const import (
-    CONF_DX_DT,
     CONF_HUMIDITY_ENTITY,
-    CONF_PRESSURE,
     CONF_PRESSURE_ENTITY,
     CONF_TEMPERATURE_ENTITY,
     CONF_THRESHOLD,
@@ -61,16 +59,9 @@ class PoorMansACCoordinator(DataUpdateCoordinator[PoorMansACData]):
         # Optional: when set, the ambient pressure is read live from this
         # sensor; otherwise the static fallback below is used.
         self._pressure_entity = entry.data.get(CONF_PRESSURE_ENTITY)
-        options = entry.options
-        self._threshold = options.get(CONF_THRESHOLD, DEFAULT_THRESHOLD)
-        # Stored option is in g_water/(kg_air*K); the formula needs the pure
-        # ratio kg_water/(kg_air*K).
-        self._dx_dt = options.get(CONF_DX_DT, DEFAULT_DX_DT) / 1000.0
-        # Stored option is in hPa; the mixing-ratio formula needs Pa. Used as
-        # the fallback when no pressure sensor is configured or available.
-        self._pressure_fallback = (
-            options.get(CONF_PRESSURE, DEFAULT_PRESSURE_HPA) * 100.0
-        )
+        self._threshold = entry.options.get(CONF_THRESHOLD, DEFAULT_THRESHOLD)
+        self._dx_dt = DEFAULT_DX_DT / 1000.0
+        self._pressure_fallback = DEFAULT_PRESSURE_HPA * 100.0
 
     async def async_initialize(self) -> None:
         """Subscribe to the source entities and compute the initial state."""
