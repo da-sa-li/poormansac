@@ -45,9 +45,9 @@ def mixing_ratio(t: float, rh: float, pressure: float) -> float:
 
 
 def absolute_humidity(t: float, rh: float) -> float:
-    """Water vapour density rho_w in g/m^3 from T and rel. humidity."""
+    """Water vapour density rho_w in kg/m^3 (SI) from T and rel. humidity."""
     vapour_pressure = saturation_vapour_pressure(t) * rh / 100.0
-    return vapour_pressure / (_R_V * (t + 273.15)) * 1000.0
+    return vapour_pressure / (_R_V * (t + 273.15))
 
 
 def heat_index(t: float, x: float) -> float:

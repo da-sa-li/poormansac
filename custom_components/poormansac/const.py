@@ -16,10 +16,11 @@ DEFAULT_NAME = "Poor Man's AC"
 # break-even point (negative = comfort improves).
 DEFAULT_THRESHOLD = 0.0
 
-# Slope of the isenthalpic process line dx/dT in g_water/(kg_air*K). Negative:
-# as the air cools (dT < 0) the water loading rises (dx > 0). Default is the
-# first-order approximation from the project specification.
-DEFAULT_DX_DT = -0.41
+# Slope of the isenthalpic process line dx/dT in kg_water/(kg_air*K) (SI unit,
+# matching the mixing ratio x, so it feeds the calc functions directly without
+# conversion). Negative: as the air cools (dT < 0) the water loading rises
+# (dx > 0). First-order approximation -cp/L from the adiabatic energy balance.
+DEFAULT_DX_DT = -0.00041
 
 # Ambient pressure in hectopascals used when computing the mixing ratio x.
 # Acts as the fallback whenever no pressure sensor is configured or the
