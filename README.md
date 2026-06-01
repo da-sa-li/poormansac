@@ -16,23 +16,28 @@ along the adiabatic cooling path as the decision criterion.
 
 ## What it computes
 
-From temperature and relative humidity the integration derives the water vapour
-density `ρ_w` (g/m³, Magnus formula) and evaluates the total differential of the
-heat index along the isenthalpic evaporative-cooling path:
+From temperature, relative humidity and ambient pressure the integration
+derives the **water loading** `x` (mixing ratio, kg_water / kg_dry_air, using
+the Magnus formula for the saturation vapour pressure) and evaluates the total
+differential of the heat index along the isenthalpic evaporative-cooling path:
 
 ```
-dHI = (∂HI/∂T)·dT + (∂HI/∂ρ_w)·dρ_w
+dHI = (∂HI/∂T)·dT + (∂HI/∂x)·dx
 ```
 
-`dT` and `dρ_w` follow from the energy balance of the adiabatic process
-(sensible heat released = latent heat absorbed). `dHI` is reported as the
-heat-index change per 1 K of evaporative cooling. **`dHI < 0` ⇒ cooling lowers
-the heat index ⇒ recommended.**
+`dT` and `dx` follow from the energy balance of the adiabatic process
+(sensible heat released = latent heat absorbed), which fixes the slope
+`dx/dT ≈ −cp/L`. `dHI` is reported as the heat-index change per 1 K of
+evaporative cooling. **`dHI < 0` ⇒ cooling lowers the heat index ⇒
+recommended.**
+
+The water vapour density `ρ_w` (absolute humidity, g/m³) is also computed and
+exposed as a sensor, but it is not part of the decision criterion.
 
 ## Entities
 
 - **binary_sensor** – `Adiabatic cooling recommended`
-- **sensor** – `Heat index`, `Absolute humidity`, `Heat index differential (dHI)`
+- **sensor** – `Heat index`, `Absolute humidity`, `Water loading`, `Heat index differential (dHI)`
 - diagnostic sensors `dHI/dT` and `dHI/dx` (disabled by default)
 
 ## Installation

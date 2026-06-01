@@ -60,7 +60,9 @@ class PoorMansACCoordinator(DataUpdateCoordinator[PoorMansACData]):
         # sensor; otherwise the static fallback below is used.
         self._pressure_entity = entry.data.get(CONF_PRESSURE_ENTITY)
         self._threshold = entry.options.get(CONF_THRESHOLD, DEFAULT_THRESHOLD)
-        self._dx_dt = DEFAULT_DX_DT / 1000.0
+        # Internal model constant already in SI (kg_water/(kg_air*K)); used directly.
+        self._dx_dt = DEFAULT_DX_DT
+        # Boundary conversion: the human-facing hPa fallback -> Pa for the math.
         self._pressure_fallback = DEFAULT_PRESSURE_HPA * 100.0
 
     async def async_initialize(self) -> None:
@@ -137,7 +139,7 @@ class PoorMansACCoordinator(DataUpdateCoordinator[PoorMansACData]):
         return PoorMansACData(
             temperature=t,
             humidity=rh,
-            absolute_humidity=calc.absolute_humidity(t, rh),
+            absolute_humidity=calc.absolute_humidity(t, rh) * 1000.0,  # kg/m^3 -> g/m^3
             mixing_ratio=x * 1000.0,  # expose in g_water/kg_air
             heat_index=calc.heat_index(t, x),
             d_hi_dt=calc.d_hi_d_t(t, x),
