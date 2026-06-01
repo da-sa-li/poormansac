@@ -33,7 +33,7 @@ def pressure_from_elevation(elevation: float) -> float:
     return 101325.0 * (1.0 - 2.25577e-5 * elevation) ** 5.25588
 
 
-
+def saturation_vapour_pressure(t: float) -> float:
     """Saturation vapour pressure over water in Pa (Magnus formula)."""
     return 611.2 * math.exp(17.62 * t / (243.12 + t))
 
