@@ -30,6 +30,38 @@ const wSat = (t, p) => wRH(t, p, 1);
 // (Pa). Inverts wRH: e = p*w/(EPSILON + w), then rh = e / eSat(t).
 const rhFromW = (w, t, p) => (p * w) / (EPSILON + w) / eSat(t);
 
+// Partial derivatives of the heat index polynomial: exact ports of calc.py
+// d_hi_d_t / d_hi_d_x, needed to locate the sign-change optimum along the
+// cooling path in the frontend without an extra round-trip to the backend.
+const _dHIdT = (t, x) => {
+  const e1 = Math.exp(-0.0533 * t);
+  const e2 = Math.exp(-0.1066 * t);
+  const tk = 273.15 + t;
+  const tk2 = tk * tk;
+  const x2 = x * x;
+  return (
+    1.61139 - 0.0246162 * t +
+    e1 * x * (136.452 - 8.5257 * t + 0.129052 * t * t
+              - 15.7986 * tk + 0.712523 * t * tk - 0.00687847 * t * t * tk) +
+    e2 * x2 * (-111.8394 * tk + 4.93978 * t * tk - 0.0243904 * t * t * tk
+                + 8.43093 * tk2 - 0.287681 * t * tk2 + 0.00130001 * t * t * tk2)
+  );
+};
+const _dHIdX = (t, x) => {
+  const e1 = Math.exp(-0.0533 * t);
+  const e2 = Math.exp(-0.1066 * t);
+  const tk = 273.15 + t;
+  const tk2 = tk * tk;
+  return (
+    e1 * tk * (136.452 - 8.5257 * t + 0.129052 * t * t) +
+    e2 * tk2 * x * (-111.8394 + 4.93978 * t - 0.0243904 * t * t)
+  );
+};
+// Total differential along the isenthalpic cooling path (dxdt in kg/kg/K).
+// Positive = cooling still beneficial; negative = cooling detrimental.
+// Sign convention: this is -(d_hi_cooling with delta_t=-1 from calc.py).
+const _dHICooling = (t, x, dxdt) => _dHIdT(t, x) + _dHIdX(t, x) * dxdt;
+
 // Keys selectable for the state-point label, in display order.
 const POINT_LABEL_KEYS = ["t", "x", "hi", "rh"];
 
@@ -160,7 +192,8 @@ class PoorMansACPsychrometricCard extends HTMLElement {
     const colGrid = "var(--divider-color, #ddd)";
     const colSat = "var(--info-color, #4099ff)";
     const colPoint = "var(--primary-color, #03a9f4)";
-    const colCool = "var(--error-color, #db4437)";
+    const colCoolBlu = "var(--primary-color, #03a9f4)"; // beneficial part of cooling line
+    const colCoolRed = "var(--error-color, #db4437)";   // detrimental part
 
     const add = (tag, attrs, parent = svg) => {
       const el = document.createElementNS(SVG_NS, tag);
@@ -271,11 +304,19 @@ class PoorMansACPsychrometricCard extends HTMLElement {
       if (Number.isFinite(dxdt) && dxdt !== 0) {
         const seg = this._coolingLine(T, xg / 1000, dxdt, pPa, tMin, xMax / 1000);
         if (seg && seg.t < T - 1e-6) {
-          add("line", {
-            x1: X(T), y1: Y(xg), x2: X(seg.t), y2: Y(seg.x * 1000),
-            stroke: colCool, "stroke-width": 2, "stroke-dasharray": "5 3",
-            "stroke-linecap": "round",
-          });
+          const dash = { "stroke-width": 2, "stroke-dasharray": "5 3", "stroke-linecap": "round" };
+          const hasOpt = seg.tOpt !== null && seg.tOpt > seg.t + 1e-6 && seg.tOpt < T - 1e-6;
+          if (hasOpt) {
+            const xgOpt = (xg / 1000 + dxdt * (seg.tOpt - T)) * 1000; // g/kg at optimum
+            add("line", { x1: X(T), y1: Y(xg), x2: X(seg.tOpt), y2: Y(xgOpt),
+              stroke: colCoolBlu, ...dash });
+            add("line", { x1: X(seg.tOpt), y1: Y(xgOpt), x2: X(seg.t), y2: Y(seg.x * 1000),
+              stroke: colCoolRed, ...dash });
+          } else {
+            const col = _dHICooling(T, xg / 1000, dxdt) >= 0 ? colCoolBlu : colCoolRed;
+            add("line", { x1: X(T), y1: Y(xg), x2: X(seg.t), y2: Y(seg.x * 1000),
+              stroke: col, ...dash });
+          }
         }
       }
       add("circle", {
@@ -317,7 +358,8 @@ class PoorMansACPsychrometricCard extends HTMLElement {
       legend.push({ c: colSat, thin: true, s: "Rel. humidity " + range });
     }
     legend.push({ c: colPoint, dot: true, s: "Current state" });
-    legend.push({ c: colCool, dash: true, s: "Cooling line" });
+    legend.push({ c: colCoolBlu, dash: true, s: "Cooling beneficial" });
+    legend.push({ c: colCoolRed, dash: true, s: "Cooling detrimental" });
     let ly = m.t + 12;
     for (const it of legend) {
       if (it.dot) {
@@ -335,31 +377,42 @@ class PoorMansACPsychrometricCard extends HTMLElement {
     }
   }
 
-  // Isenthalpic cooling line end point {t, x(kg/kg)}: walk T down, x rises,
-  // stop at the saturation curve or the chart bounds.
+  // Isenthalpic cooling line end point {t, x(kg/kg), tOpt}: walk T down, x
+  // rises, stop at the saturation curve or the chart bounds.  tOpt is the
+  // temperature where _dHICooling changes sign from positive (beneficial) to
+  // negative (detrimental), or null when no such crossing exists in the path.
   _coolingLine(t0, x0, dxdt, p, tFloor, xCeil) {
     const xLine = (t) => x0 + dxdt * (t - t0);
     // Already at/above saturation: evaporative cooling can't help; collapse.
-    if (xLine(t0) >= wSat(t0, p)) return { t: t0, x: xLine(t0) };
+    if (xLine(t0) >= wSat(t0, p)) return { t: t0, x: xLine(t0), tOpt: null };
     let t = t0;
     const step = 0.1;
+    let prevDHI = _dHICooling(t0, x0, dxdt);
+    let tOpt = null;
     for (let i = 0; i < 2000; i++) {
       const tn = t - step;
       const xn = xLine(tn);
+      const currDHI = _dHICooling(tn, xn, dxdt);
+      // Detect the first beneficial → detrimental crossing (+ → −).
+      if (tOpt === null && prevDHI > 0 && currDHI < 0) {
+        const f = prevDHI / (prevDHI - currDHI); // linear interpolation fraction
+        tOpt = t - f * step;
+      }
       if (xn >= wSat(tn, p)) {
         // Crossing in [tn, t]: interpolate the residual (line - wSat) to zero so
         // the endpoint lands exactly on the saturation curve, not above it.
         const r = xLine(t) - wSat(t, p);
         const rn = xn - wSat(tn, p);
         const tc = t + (r / (r - rn)) * (tn - t);
-        return { t: tc, x: wSat(tc, p) };
+        return { t: tc, x: wSat(tc, p), tOpt };
       }
       if (tn <= tFloor || xn >= xCeil) {
-        return { t: Math.max(tn, tFloor), x: Math.min(xn, xCeil) };
+        return { t: Math.max(tn, tFloor), x: Math.min(xn, xCeil), tOpt };
       }
       t = tn;
+      prevDHI = currDHI;
     }
-    return { t, x: xLine(t) };
+    return { t, x: xLine(t), tOpt };
   }
 }
 
