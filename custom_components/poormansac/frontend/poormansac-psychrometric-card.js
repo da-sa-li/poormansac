@@ -56,12 +56,17 @@ class PoorMansACPsychrometricCard extends HTMLElement {
       t_max: 40,
       x_min: 0,
       x_max: 50,
+      rh_lines: 5,
       ...config,
     };
     for (const k of ["t_min", "t_max", "x_min", "x_max"]) {
       if (!Number.isFinite(Number(this._config[k]))) {
         throw new Error(`Invalid "${k}": expected a finite number.`);
       }
+    }
+    const n = Number(this._config.rh_lines);
+    if (!Number.isInteger(n) || n < 0) {
+      throw new Error('Invalid "rh_lines": expected a non-negative integer.');
     }
     if (Number(this._config.t_min) >= Number(this._config.t_max)) {
       throw new Error('"t_min" must be smaller than "t_max".');
@@ -199,23 +204,29 @@ class PoorMansACPsychrometricCard extends HTMLElement {
       return { d, endT, endX };
     };
 
-    // Iso-RH lines (drawn first, so the saturation curve and the state point sit
-    // on top). Thin, in the saturation colour at reduced opacity, each labelled.
-    for (const rh of [0.2, 0.4, 0.6, 0.8]) {
+    // rh_lines = N draws N equally spaced curves at i/N for i = 1..N, so the
+    // top one is the saturation curve (100% RH) and 0% RH is never drawn; N = 0
+    // draws nothing. Lower-RH lines are drawn first so the saturation curve and
+    // the state point sit on top. The saturation curve is thick and labelled via
+    // the legend; the inner iso-lines are thin, dimmed, and labelled in place.
+    const nRH = Number(cfg.rh_lines);
+    for (let i = 1; i <= nRH; i++) {
+      const rh = i / nRH;
       const { d, endT, endX } = rhPath(rh);
       if (!d) continue;
-      add("path", {
-        d, fill: "none", stroke: colSat, "stroke-width": 0.75, opacity: 0.5,
-      });
-      if (endT !== null) {
-        text(X(endT) - 2, Y(endX) - 3, Math.round(rh * 100) + "%", {
-          "text-anchor": "end", fill: colSat, opacity: 0.8, "font-size": "9px",
+      if (rh >= 1 - 1e-9) {
+        add("path", { d, fill: "none", stroke: colSat, "stroke-width": 1.5 });
+      } else {
+        add("path", {
+          d, fill: "none", stroke: colSat, "stroke-width": 0.75, opacity: 0.5,
         });
+        if (endT !== null) {
+          text(X(endT) - 2, Y(endX) - 3, Math.round(rh * 100) + "%", {
+            "text-anchor": "end", fill: colSat, opacity: 0.8, "font-size": "9px",
+          });
+        }
       }
     }
-
-    // --- saturation curve (100% RH), clamped to the top edge ---
-    add("path", { d: rhPath(1).d, fill: "none", stroke: colSat, "stroke-width": 1.5 });
 
     // --- current state + isenthalpic cooling line ---
     const a = st ? st.attributes : {};
@@ -253,12 +264,19 @@ class PoorMansACPsychrometricCard extends HTMLElement {
     }
 
     // --- legend (upper-left, above the saturation curve) ---
-    const legend = [
-      { c: colSat, s: "Saturation (100% RH)" },
-      { c: colSat, thin: true, s: "Rel. humidity 20–80%" },
-      { c: colPoint, dot: true, s: "Current state" },
-      { c: colCool, dash: true, s: "Cooling line" },
-    ];
+    const legend = [];
+    if (nRH >= 1) {
+      legend.push({ c: colSat, s: "Saturation (100% RH)" });
+    }
+    if (nRH >= 2) {
+      const step = 100 / nRH;
+      const lo = Math.round(step);
+      const hi = Math.round((nRH - 1) * step);
+      const range = lo === hi ? lo + "%" : lo + "–" + hi + "%";
+      legend.push({ c: colSat, thin: true, s: "Rel. humidity " + range });
+    }
+    legend.push({ c: colPoint, dot: true, s: "Current state" });
+    legend.push({ c: colCool, dash: true, s: "Cooling line" });
     let ly = m.t + 12;
     for (const it of legend) {
       if (it.dot) {
