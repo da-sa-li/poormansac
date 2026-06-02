@@ -32,6 +32,7 @@ _FRONTEND_URL_BASE = "/poormansac_frontend"
 _CARD_FILENAME = "poormansac-psychrometric-card.js"
 _CARD_URL = f"{_FRONTEND_URL_BASE}/{_CARD_FILENAME}"
 _FRONTEND_REGISTERED_KEY = f"{DOMAIN}_frontend_registered"
+_FRONTEND_SCHEDULED_KEY = f"{DOMAIN}_frontend_scheduled"
 _FRONTEND_LOCK_KEY = f"{DOMAIN}_frontend_lock"
 
 
@@ -64,8 +65,8 @@ async def _async_register_frontend(hass: HomeAssistant) -> None:
 
     Registration happens once per Home Assistant instance. A lock serialises
     concurrent config-entry setups, and the success flag is only set after the
-    work is scheduled, so a failed attempt is retried by the next setup instead
-    of leaving the card unregistered.
+    card is actually registered, so a failed attempt is retried by the next
+    setup instead of leaving the card unregistered.
     """
     if hass.data.get(_FRONTEND_REGISTERED_KEY):
         return
@@ -86,16 +87,20 @@ async def _async_register_frontend(hass: HomeAssistant) -> None:
         version = await _async_card_version(hass)
 
         async def _register(*_: object) -> None:
+            # Mark as done only after the card is actually registered, so a
+            # failure here leaves the flag unset and the next config-entry
+            # setup retries instead of silently skipping registration.
             await _async_register_card_resource(hass, version)
+            hass.data[_FRONTEND_REGISTERED_KEY] = True
 
         # Lovelace resources are reliable only once Home Assistant has finished
         # starting; defer until then if setup runs during the boot sequence.
         if hass.is_running:
             await _register()
-        else:
+        elif not hass.data.get(_FRONTEND_SCHEDULED_KEY):
+            # Guard against queuing one startup listener per config entry.
+            hass.data[_FRONTEND_SCHEDULED_KEY] = True
             hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, _register)
-
-        hass.data[_FRONTEND_REGISTERED_KEY] = True
 
 
 async def _async_card_version(hass: HomeAssistant) -> str:
