@@ -33,6 +33,11 @@ const rhFromW = (w, t, p) => (p * w) / (EPSILON + w) / eSat(t);
 // Keys selectable for the state-point label, in display order.
 const POINT_LABEL_KEYS = ["t", "x", "hi", "rh"];
 
+// Upper bound on rh_lines, so a misconfiguration can't spawn an unbounded
+// number of SVG paths and stall the frontend. 100 curves is already far denser
+// than the chart can usefully show.
+const MAX_RH_LINES = 100;
+
 const SVG_NS = "http://www.w3.org/2000/svg";
 
 class PoorMansACPsychrometricCard extends HTMLElement {
@@ -73,9 +78,12 @@ class PoorMansACPsychrometricCard extends HTMLElement {
       }
     }
     const n = Number(this._config.rh_lines);
-    if (!Number.isInteger(n) || n < 0) {
-      throw new Error('Invalid "rh_lines": expected a non-negative integer.');
+    if (!Number.isInteger(n) || n < 0 || n > MAX_RH_LINES) {
+      throw new Error(
+        `Invalid "rh_lines": expected an integer between 0 and ${MAX_RH_LINES}.`
+      );
     }
+    this._config.rh_lines = n;
     const labels = this._config.point_label;
     if (!Array.isArray(labels) || labels.some((k) => !POINT_LABEL_KEYS.includes(k))) {
       throw new Error(
@@ -187,9 +195,11 @@ class PoorMansACPsychrometricCard extends HTMLElement {
     const pPa = Number.isFinite(pHpa) && pHpa > 0 ? pHpa * 100 : 101325;
 
     // --- constant relative-humidity curves, clamped to the chart bounds ---
-    // Each curve x(T) = wRH(T, p, rh) rises with T; like the saturation curve it
-    // is clamped to the top edge (x = xMax) when it leaves through the top. The
-    // returned point is where the (visible) curve ends, used to anchor a label.
+    // Each curve x(T) = wRH(T, p, rh) rises monotonically with T, so it enters
+    // the plot area once through the bottom edge (x = xMin) and leaves once
+    // through the top edge (x = xMax); both crossings are interpolated so the
+    // visible path stays inside [xMin, xMax]. The returned point is where the
+    // visible curve ends, used to anchor a label.
     const rhPath = (rh) => {
       let d = "";
       let pT = null;
@@ -198,22 +208,30 @@ class PoorMansACPsychrometricCard extends HTMLElement {
       let endX = null;
       for (let t = tMin; t <= tMax + 1e-9; t += 1) {
         const xg = wRH(t, pPa, rh) * 1000;
-        if (xg <= xMax) {
-          d += (d === "" ? "M" : "L") + X(t).toFixed(1) + " " + Y(xg).toFixed(1) + " ";
-          pT = t;
-          pX = xg;
-          endT = t;
-          endX = xg;
-        } else {
-          if (pT !== null) {
-            const f = (xMax - pX) / (xg - pX);
-            const tc = pT + f * (t - pT);
-            d += "L" + X(tc).toFixed(1) + " " + Y(xMax).toFixed(1) + " ";
-            endT = tc;
-            endX = xMax;
-          }
+        // Entering from below the bottom edge: start the path at xMin.
+        if (pT !== null && pX < xMin && xg >= xMin) {
+          const f = (xMin - pX) / (xg - pX);
+          const te = pT + f * (t - pT);
+          d += (d === "" ? "M" : "L") + X(te).toFixed(1) + " " + Y(xMin).toFixed(1) + " ";
+          endT = te;
+          endX = xMin;
+        }
+        // Leaving through the top edge: finish the path at xMax and stop.
+        if (pT !== null && pX <= xMax && xg > xMax) {
+          const f = (xMax - pX) / (xg - pX);
+          const tc = pT + f * (t - pT);
+          d += (d === "" ? "M" : "L") + X(tc).toFixed(1) + " " + Y(xMax).toFixed(1) + " ";
+          endT = tc;
+          endX = xMax;
           break;
         }
+        if (xg >= xMin && xg <= xMax) {
+          d += (d === "" ? "M" : "L") + X(t).toFixed(1) + " " + Y(xg).toFixed(1) + " ";
+          endT = t;
+          endX = xg;
+        }
+        pT = t;
+        pX = xg;
       }
       return { d, endT, endX };
     };

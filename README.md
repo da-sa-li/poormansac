@@ -85,4 +85,5 @@ entity: binary_sensor.poor_man_s_ac_adiabatic_cooling_recommended
 
 The card reads everything it needs from the binary sensor's attributes
 (`temperature`, `mixing_ratio`, `pressure`, `dx_dt`) and recomputes only the
-saturation curve, using the same effective pressure the integration used for `x`.
+relative-humidity curves, using the same effective pressure the integration used
+for `x`.
