@@ -33,34 +33,39 @@ const rhFromW = (w, t, p) => (p * w) / (EPSILON + w) / eSat(t);
 // Partial derivatives of the heat index polynomial: exact ports of calc.py
 // d_hi_d_t / d_hi_d_x, needed to locate the sign-change optimum along the
 // cooling path in the frontend without an extra round-trip to the backend.
-const _dHIdT = (t, x) => {
+// Pressure p (Pa) enters through the moisture term, matching the SI per-pascal
+// coefficients in calc.py.
+const _dHIdT = (t, x, p) => {
   const e1 = Math.exp(-0.0533 * t);
   const e2 = Math.exp(-0.1066 * t);
   const tk = 273.15 + t;
   const tk2 = tk * tk;
+  const tk3 = tk2 * tk;
+  const p2 = p * p;
   const x2 = x * x;
   return (
     1.61139 - 0.0246162 * t +
-    e1 * x * (136.452 - 8.5257 * t + 0.129052 * t * t
-              - 15.7986 * tk + 0.712523 * t * tk - 0.00687847 * t * t * tk) +
-    e2 * x2 * (-111.8394 * tk + 4.93978 * t * tk - 0.0243904 * t * t * tk
-                + 8.43093 * tk2 - 0.287681 * t * tk2 + 0.00130001 * t * t * tk2)
+    e1 * p * x * ((-134.599 + 8.40997 * t - 0.1273 * t * t) / tk2 +
+                  (-15.58410 + 0.7028514 * t - 0.0067851 * t * t) / tk) +
+    e2 * p2 * x2 * ((108.8238 - 4.80658 * t + 0.0237328 * t * t) / tk3 +
+                    (8.203599 - 0.2799235 * t + 0.00126496 * t * t) / tk2)
   );
 };
-const _dHIdX = (t, x) => {
+const _dHIdX = (t, x, p) => {
   const e1 = Math.exp(-0.0533 * t);
   const e2 = Math.exp(-0.1066 * t);
   const tk = 273.15 + t;
   const tk2 = tk * tk;
+  const p2 = p * p;
   return (
-    e1 * tk * (136.452 - 8.5257 * t + 0.129052 * t * t) +
-    e2 * tk2 * x * (-111.8394 + 4.93978 * t - 0.0243904 * t * t)
+    (e1 * p * (134.599 - 8.40997 * t + 0.1273 * t * t)) / tk -
+    (e2 * p2 * x * (108.8238 - 4.80658 * t + 0.0237328 * t * t)) / tk2
   );
 };
 // Total differential along the isenthalpic cooling path (dxdt in kg/kg/K).
 // Positive = cooling still beneficial; negative = cooling detrimental.
 // Sign convention: this is -(d_hi_cooling with delta_t=-1 from calc.py).
-const _dHICooling = (t, x, dxdt) => _dHIdT(t, x) + _dHIdX(t, x) * dxdt;
+const _dHICooling = (t, x, dxdt, p) => _dHIdT(t, x, p) + _dHIdX(t, x, p) * dxdt;
 
 // Keys selectable for the state-point label, in display order.
 const POINT_LABEL_KEYS = ["t", "x", "hi", "rh"];
@@ -341,7 +346,7 @@ class PoorMansACPsychrometricCard extends HTMLElement {
             add("line", { x1: X(seg.tOpt), y1: Y(xgOpt), x2: X(seg.t), y2: Y(seg.x * 1000),
               stroke: colCoolRed, ...dashRed });
           } else {
-            const beneficial = _dHICooling(T, xg / 1000, dxdt) >= 0;
+            const beneficial = _dHICooling(T, xg / 1000, dxdt, pPa) >= 0;
             add("line", { x1: X(T), y1: Y(xg), x2: X(seg.t), y2: Y(seg.x * 1000),
               stroke: beneficial ? colCoolBlu : colCoolRed,
               ...(beneficial ? dashBlu : dashRed) });
@@ -416,12 +421,12 @@ class PoorMansACPsychrometricCard extends HTMLElement {
     if (xLine(t0) >= wSat(t0, p)) return { t: t0, x: xLine(t0), tOpt: null };
     let t = t0;
     const step = 0.1;
-    let prevDHI = _dHICooling(t0, x0, dxdt);
+    let prevDHI = _dHICooling(t0, x0, dxdt, p);
     let tOpt = null;
     for (let i = 0; i < 2000; i++) {
       const tn = t - step;
       const xn = xLine(tn);
-      const currDHI = _dHICooling(tn, xn, dxdt);
+      const currDHI = _dHICooling(tn, xn, dxdt, p);
       // Detect the first beneficial → detrimental crossing (+ → −).
       if (tOpt === null && prevDHI > 0 && currDHI <= 0) {
         const f = prevDHI / (prevDHI - currDHI); // linear interpolation fraction

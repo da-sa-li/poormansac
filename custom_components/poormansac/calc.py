@@ -8,9 +8,11 @@ All functions are pure and unit-explicit:
 * ``pressure``: ambient pressure in Pa.
 
 The decision criterion is the total differential of the heat index along the
-direct adiabatic (evaporative) cooling path, which uses the water loading
-``x`` rather than the vapour density (``rho_w = x * rho_L`` with a variable
-dry-air density ``rho_L``):
+direct adiabatic (evaporative) cooling path.  The heat index is a fit in the
+water loading ``x`` (rather than the vapour density ``rho_w = x * rho_L`` with a
+variable dry-air density ``rho_L``) and now carries the ambient pressure ``p``
+explicitly.  Along the isenthalpic path ``p`` is constant, so only ``T`` and
+``x`` vary:
 
     dHI = (dHI/dT) * dT + (dHI/dx) * dx
 
@@ -50,70 +52,87 @@ def absolute_humidity(t: float, rh: float) -> float:
     return vapour_pressure / (_R_V * (t + 273.15))
 
 
-def heat_index(t: float, x: float) -> float:
-    """Heat index in degrees Celsius from temperature and water loading."""
+def heat_index(t: float, x: float, pressure: float) -> float:
+    """Heat index in degrees Celsius from temperature, water loading and pressure.
+
+    The moisture dependence enters through the (vapour-pressure-like) product
+    ``p * x``.  The pressure coefficients are the kPa-based Mathematica fit
+    constants re-expressed per pascal, so the math stays in SI: the
+    linear-in-``p`` constants are the fit values / 1e3 (e.g. 134599 -> 134.599)
+    and the quadratic-in-``p`` ones / 1e6 (e.g. 5.44119e7 -> 54.4119).  The
+    fit itself remains the documented exception that takes ``t`` in degrees
+    Celsius and forms the absolute temperature ``tk = t + 273.15`` internally.
+    """
     e1 = math.exp(-0.0533 * t)
     e2 = math.exp(-0.1066 * t)
     tk = 273.15 + t
     tk2 = tk * tk
+    p = pressure
+    p2 = p * p
     x2 = x * x
     return (
         -8.7847
         + 1.61139 * t
         - 0.0123081 * t * t
-        + 136.452 * e1 * tk * x
-        - 8.5257 * e1 * t * tk * x
-        + 0.129052 * e1 * t * t * tk * x
-        - 55.9197 * e2 * tk2 * x2
-        + 2.46989 * e2 * t * tk2 * x2
-        - 0.0121952 * e2 * t * t * tk2 * x2
+        + 134.599 * e1 * p * x / tk
+        - 8.40997 * e1 * t * p * x / tk
+        + 0.1273 * e1 * t * t * p * x / tk
+        - 54.4119 * e2 * p2 * x2 / tk2
+        + 2.40329 * e2 * t * p2 * x2 / tk2
+        - 0.0118664 * e2 * t * t * p2 * x2 / tk2
     )
 
 
-def d_hi_d_t(t: float, x: float) -> float:
-    """Partial derivative dHI/dT (Mathematica specification)."""
+def d_hi_d_t(t: float, x: float, pressure: float) -> float:
+    """Partial derivative dHI/dT (analytic derivative of ``heat_index``, SI p)."""
     e1 = math.exp(-0.0533 * t)
     e2 = math.exp(-0.1066 * t)
     tk = 273.15 + t
     tk2 = tk * tk
+    tk3 = tk2 * tk
+    p = pressure
+    p2 = p * p
     x2 = x * x
     return (
         1.61139
         - 0.0246162 * t
-        + 136.452 * e1 * x
-        - 8.5257 * e1 * t * x
-        + 0.129052 * e1 * t * t * x
-        - 15.7986 * e1 * tk * x
-        + 0.712523 * e1 * t * tk * x
-        - 0.00687847 * e1 * t * t * tk * x
-        - 111.8394 * e2 * tk * x2
-        + 4.93978 * e2 * t * tk * x2
-        - 0.0243904 * e2 * t * t * tk * x2
-        + 8.43093 * e2 * tk2 * x2
-        - 0.287681 * e2 * t * tk2 * x2
-        + 0.00130001 * e2 * t * t * tk2 * x2
+        - 134.599 * e1 * p * x / tk2
+        + 8.40997 * e1 * t * p * x / tk2
+        - 0.1273 * e1 * t * t * p * x / tk2
+        - 15.58410 * e1 * p * x / tk
+        + 0.7028514 * e1 * t * p * x / tk
+        - 0.0067851 * e1 * t * t * p * x / tk
+        + 108.8238 * e2 * p2 * x2 / tk3
+        - 4.80658 * e2 * t * p2 * x2 / tk3
+        + 0.0237328 * e2 * t * t * p2 * x2 / tk3
+        + 8.203599 * e2 * p2 * x2 / tk2
+        - 0.2799235 * e2 * t * p2 * x2 / tk2
+        + 0.00126496 * e2 * t * t * p2 * x2 / tk2
     )
 
 
-def d_hi_d_x(t: float, x: float) -> float:
-    """Partial derivative dHI/dx (Mathematica specification)."""
+def d_hi_d_x(t: float, x: float, pressure: float) -> float:
+    """Partial derivative dHI/dx (analytic derivative of ``heat_index``, SI p)."""
     e1 = math.exp(-0.0533 * t)
     e2 = math.exp(-0.1066 * t)
     tk = 273.15 + t
     tk2 = tk * tk
+    p = pressure
+    p2 = p * p
     return (
-        136.452 * e1 * tk
-        - 8.5257 * e1 * t * tk
-        + 0.129052 * e1 * t * t * tk
-        - 111.8394 * e2 * tk2 * x
-        + 4.93978 * e2 * t * tk2 * x
-        - 0.0243904 * e2 * t * t * tk2 * x
+        134.599 * e1 * p / tk
+        - 8.40997 * e1 * t * p / tk
+        + 0.1273 * e1 * t * t * p / tk
+        - 108.8238 * e2 * p2 * x / tk2
+        + 4.80658 * e2 * t * p2 * x / tk2
+        - 0.0237328 * e2 * t * t * p2 * x / tk2
     )
 
 
 def d_hi_cooling(
     t: float,
     x: float,
+    pressure: float,
     dx_dt: float,
     delta_t: float = -1.0,
 ) -> float:
@@ -121,9 +140,10 @@ def d_hi_cooling(
 
     ``dx_dt`` is the slope of the isenthalpic process line as a pure ratio
     ``[kg_water/(kg_air*K)]`` (negative: as the air cools the water loading
-    rises).  With the default ``delta_t = -1`` K the result is the heat-index
-    change per 1 K of evaporative cooling; a negative value means cooling
-    improves comfort.
+    rises).  The ambient ``pressure`` is constant along the path and only feeds
+    the two partials.  With the default ``delta_t = -1`` K the result is the
+    heat-index change per 1 K of evaporative cooling; a negative value means
+    cooling improves comfort.
     """
     dx = dx_dt * delta_t
-    return d_hi_d_t(t, x) * delta_t + d_hi_d_x(t, x) * dx
+    return d_hi_d_t(t, x, pressure) * delta_t + d_hi_d_x(t, x, pressure) * dx

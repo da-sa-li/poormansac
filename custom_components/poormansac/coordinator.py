@@ -140,7 +140,7 @@ class PoorMansACCoordinator(DataUpdateCoordinator[PoorMansACData]):
 
         pressure = self._read_pressure()
         x = calc.mixing_ratio(t, rh, pressure)
-        d_hi = calc.d_hi_cooling(t, x, self._dx_dt)
+        d_hi = calc.d_hi_cooling(t, x, pressure, self._dx_dt)
 
         return PoorMansACData(
             temperature=t,
@@ -148,9 +148,9 @@ class PoorMansACCoordinator(DataUpdateCoordinator[PoorMansACData]):
             pressure=pressure,
             absolute_humidity=calc.absolute_humidity(t, rh) * 1000.0,  # kg/m^3 -> g/m^3
             mixing_ratio=x * 1000.0,  # expose in g_water/kg_air
-            heat_index=calc.heat_index(t, x),
-            d_hi_dt=calc.d_hi_d_t(t, x),
-            d_hi_dx=calc.d_hi_d_x(t, x),
+            heat_index=calc.heat_index(t, x, pressure),
+            d_hi_dt=calc.d_hi_d_t(t, x, pressure),
+            d_hi_dx=calc.d_hi_d_x(t, x, pressure),
             d_hi=d_hi,
             cooling_recommended=d_hi < self._threshold,
         )

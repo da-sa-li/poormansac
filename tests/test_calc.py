@@ -46,7 +46,7 @@ def test_mixing_ratio_reference():
 def test_heat_index_reference():
     """Heat index at 25 C / 50 % stays close to the dry-bulb temperature."""
     x = calc.mixing_ratio(25.0, 50.0, P0)
-    assert calc.heat_index(25.0, x) == pytest.approx(25.8, abs=0.1)
+    assert calc.heat_index(25.0, x, P0) == pytest.approx(25.9, abs=0.1)
 
 
 # --- 2. Unit guards (SI) -------------------------------------------------
@@ -74,27 +74,27 @@ def test_default_dx_dt_is_si_and_matches_physics():
 # derivatives of heat_index, without duplicating the coefficients.
 
 DERIV_POINTS = [
-    (20.0, 0.005),
-    (25.0, 0.010),
-    (30.0, 0.015),
-    (35.0, 0.020),
+    (20.0, 0.005, 101325.0),
+    (25.0, 0.010, 95000.0),
+    (30.0, 0.015, 101325.0),
+    (35.0, 0.020, 90000.0),
 ]
 
 
-@pytest.mark.parametrize("t, x", DERIV_POINTS)
-def test_d_hi_d_t_matches_finite_difference(t, x):
+@pytest.mark.parametrize("t, x, p", DERIV_POINTS)
+def test_d_hi_d_t_matches_finite_difference(t, x, p):
     """Analytic d_hi_d_t equals the numeric d(heat_index)/dt at each point."""
     h = 1e-6
-    fd = (calc.heat_index(t + h, x) - calc.heat_index(t - h, x)) / (2.0 * h)
-    assert calc.d_hi_d_t(t, x) == pytest.approx(fd, rel=1e-4)
+    fd = (calc.heat_index(t + h, x, p) - calc.heat_index(t - h, x, p)) / (2.0 * h)
+    assert calc.d_hi_d_t(t, x, p) == pytest.approx(fd, rel=1e-4)
 
 
-@pytest.mark.parametrize("t, x", DERIV_POINTS)
-def test_d_hi_d_x_matches_finite_difference(t, x):
+@pytest.mark.parametrize("t, x, p", DERIV_POINTS)
+def test_d_hi_d_x_matches_finite_difference(t, x, p):
     """Analytic d_hi_d_x equals the numeric d(heat_index)/dx at each point."""
     h = 1e-6
-    fd = (calc.heat_index(t, x + h) - calc.heat_index(t, x - h)) / (2.0 * h)
-    assert calc.d_hi_d_x(t, x) == pytest.approx(fd, rel=1e-4)
+    fd = (calc.heat_index(t, x + h, p) - calc.heat_index(t, x - h, p)) / (2.0 * h)
+    assert calc.d_hi_d_x(t, x, p) == pytest.approx(fd, rel=1e-4)
 
 
 # --- 4. Invariants / properties (value-free) -----------------------------
@@ -138,24 +138,26 @@ def test_pressure_decreases_with_elevation():
 
 def test_d_hi_cooling_composition():
     """d_hi_cooling is the total differential built from the two partials."""
-    t, x, dx_dt, delta_t = 28.0, 0.012, -0.00041, -1.0
-    expected = calc.d_hi_d_t(t, x) * delta_t + calc.d_hi_d_x(t, x) * dx_dt * delta_t
-    assert calc.d_hi_cooling(t, x, dx_dt, delta_t) == pytest.approx(expected)
+    t, x, p, dx_dt, delta_t = 28.0, 0.012, P0, -0.00041, -1.0
+    expected = (
+        calc.d_hi_d_t(t, x, p) * delta_t + calc.d_hi_d_x(t, x, p) * dx_dt * delta_t
+    )
+    assert calc.d_hi_cooling(t, x, p, dx_dt, delta_t) == pytest.approx(expected)
 
 
 def test_d_hi_cooling_default_delta_t_is_minus_one():
     """d_hi_cooling defaults to a 1 K cooling step (delta_t = -1.0)."""
     t, x, dx_dt = 25.0, 0.009852, -0.00041
-    assert calc.d_hi_cooling(t, x, dx_dt) == pytest.approx(
-        calc.d_hi_cooling(t, x, dx_dt, -1.0)
+    assert calc.d_hi_cooling(t, x, P0, dx_dt) == pytest.approx(
+        calc.d_hi_cooling(t, x, P0, dx_dt, -1.0)
     )
 
 
 def test_d_hi_cooling_regression():
     """d_hi_cooling at 25 C / 50 % stays at its known reference value."""
     x = calc.mixing_ratio(25.0, 50.0, P0)
-    assert calc.d_hi_cooling(25.0, x, const.DEFAULT_DX_DT) == pytest.approx(
-        -0.4223, rel=1e-3
+    assert calc.d_hi_cooling(25.0, x, P0, const.DEFAULT_DX_DT) == pytest.approx(
+        -0.5300, rel=1e-3
     )
 
 
@@ -171,10 +173,10 @@ def test_d_hi_cooling_regression():
 def test_d_hi_cooling_recommends_on_when_hot_and_dry():
     """Hot, dry air (35 C / 20 % rF): evaporative cooling lowers heat index."""
     x = calc.mixing_ratio(35.0, 20.0, P0)
-    assert calc.d_hi_cooling(35.0, x, const.DEFAULT_DX_DT) < 0
+    assert calc.d_hi_cooling(35.0, x, P0, const.DEFAULT_DX_DT) < 0
 
 
 def test_d_hi_cooling_recommends_off_when_already_saturated():
     """Very hot, near-saturated air (40 C / 90 % rF): cooling raises heat index."""
     x = calc.mixing_ratio(40.0, 90.0, P0)
-    assert calc.d_hi_cooling(40.0, x, const.DEFAULT_DX_DT) > 0
+    assert calc.d_hi_cooling(40.0, x, P0, const.DEFAULT_DX_DT) > 0
