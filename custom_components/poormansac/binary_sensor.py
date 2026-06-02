@@ -37,8 +37,15 @@ class CoolingRecommendedBinarySensor(PoorMansACEntity, BinarySensorEntity):
     @property
     def extra_state_attributes(self) -> dict[str, float | None]:
         data = self.coordinator.data
+        # Pressure is kept in Pa internally; expose hPa at this display boundary.
+        pressure_hpa = data.pressure / 100.0 if data.pressure is not None else None
         return {
             "d_hi": data.d_hi,
             "heat_index": data.heat_index,
             "absolute_humidity": data.absolute_humidity,
+            "temperature": data.temperature,  # °C
+            "humidity": data.humidity,  # %
+            "mixing_ratio": data.mixing_ratio,  # g_water/kg_air
+            "pressure": pressure_hpa,  # hPa (effective pressure used for x)
+            "dx_dt": self.coordinator.dx_dt,  # kg_water/(kg_air*K), SI slope
         }
