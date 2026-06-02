@@ -152,3 +152,24 @@ def test_d_hi_cooling_regression():
     assert calc.d_hi_cooling(25.0, x, const.DEFAULT_DX_DT) == pytest.approx(
         -0.4223, rel=1e-3
     )
+
+
+# --- 6. Cooling recommendation: sign-based scenarios ---------------------
+#
+# The binary "cool or not" decision is: d_hi_cooling < 0  →  cooling helps.
+# Two physically contrasting scenarios anchor the sign:
+#   * Hot + dry: evaporative cooling reduces the heat index  → recommend ON.
+#   * Hot + saturated: air is already near-saturated, adding moisture raises
+#     the heat index further                                 → recommend OFF.
+
+
+def test_d_hi_cooling_recommends_on_when_hot_and_dry():
+    """Hot, dry air (35 C / 20 % rF): evaporative cooling lowers heat index."""
+    x = calc.mixing_ratio(35.0, 20.0, P0)
+    assert calc.d_hi_cooling(35.0, x, const.DEFAULT_DX_DT) < 0
+
+
+def test_d_hi_cooling_recommends_off_when_already_saturated():
+    """Very hot, near-saturated air (40 C / 90 % rF): cooling raises heat index."""
+    x = calc.mixing_ratio(40.0, 90.0, P0)
+    assert calc.d_hi_cooling(40.0, x, const.DEFAULT_DX_DT) > 0
