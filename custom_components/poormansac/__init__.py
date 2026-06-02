@@ -3,16 +3,25 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from pathlib import Path
 
 from homeassistant.components import frontend
 from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import Platform
+from homeassistant.const import EVENT_HOMEASSISTANT_STARTED, Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.loader import async_get_integration
 
 from .const import DOMAIN
 from .coordinator import PoorMansACCoordinator
+
+try:  # ``LOVELACE_DATA`` is the documented key; fall back for older cores.
+    from homeassistant.components.lovelace.const import LOVELACE_DATA
+except ImportError:  # pragma: no cover - depends on Home Assistant version
+    LOVELACE_DATA = "lovelace"
+
+_LOGGER = logging.getLogger(__name__)
 
 PLATFORMS = [Platform.BINARY_SENSOR, Platform.SENSOR]
 
@@ -39,12 +48,24 @@ async def async_setup_entry(hass: HomeAssistant, entry: PoorMansACConfigEntry) -
 
 
 async def _async_register_frontend(hass: HomeAssistant) -> None:
-    """Serve the bundled Lovelace card and auto-load it as a JS module.
+    """Serve the bundled Lovelace card and make it loadable without manual setup.
+
+    Serving the file is not enough on its own: a dashboard only loads a custom
+    card if its JS module is registered, otherwise the card shows a
+    "custom element doesn't exist" configuration error. So we register it the
+    way the user otherwise would by hand under
+    *Settings → Dashboard → Resources*:
+
+    - **Storage mode** (the default): add a Lovelace *module* resource, so the
+      card appears in the dashboard's resource list and card picker
+      automatically.
+    - **YAML mode**: resources live in the user's YAML and cannot be edited from
+      code, so we fall back to loading the module globally via the frontend.
 
     Registration happens once per Home Assistant instance. A lock serialises
     concurrent config-entry setups, and the success flag is only set after the
-    work completes, so a failed attempt is retried by the next setup instead of
-    leaving the card unregistered.
+    work is scheduled, so a failed attempt is retried by the next setup instead
+    of leaving the card unregistered.
     """
     if hass.data.get(_FRONTEND_REGISTERED_KEY):
         return
@@ -52,12 +73,68 @@ async def _async_register_frontend(hass: HomeAssistant) -> None:
     async with lock:
         if hass.data.get(_FRONTEND_REGISTERED_KEY):
             return
+
         frontend_dir = Path(__file__).parent / "frontend"
-        await hass.http.async_register_static_paths(
-            [StaticPathConfig(_FRONTEND_URL_BASE, str(frontend_dir), cache_headers=False)]
-        )
-        frontend.add_extra_js_url(hass, _CARD_URL)
+        try:
+            await hass.http.async_register_static_paths(
+                [StaticPathConfig(_FRONTEND_URL_BASE, str(frontend_dir), cache_headers=False)]
+            )
+        except RuntimeError:
+            # Path was already registered by an earlier setup; harmless.
+            pass
+
+        version = await _async_card_version(hass)
+
+        async def _register(*_: object) -> None:
+            await _async_register_card_resource(hass, version)
+
+        # Lovelace resources are reliable only once Home Assistant has finished
+        # starting; defer until then if setup runs during the boot sequence.
+        if hass.is_running:
+            await _register()
+        else:
+            hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, _register)
+
         hass.data[_FRONTEND_REGISTERED_KEY] = True
+
+
+async def _async_card_version(hass: HomeAssistant) -> str:
+    """Return the integration version, used as a cache-busting query string."""
+    integration = await async_get_integration(hass, DOMAIN)
+    return str(integration.version) if integration.version else "0"
+
+
+async def _async_register_card_resource(hass: HomeAssistant, version: str) -> None:
+    """Register the bundled card as a Lovelace module resource (storage mode).
+
+    Falls back to loading the module globally when resources cannot be managed
+    from code (YAML mode, or before Lovelace is available).
+    """
+    lovelace = hass.data.get(LOVELACE_DATA)
+    resources = getattr(lovelace, "resources", None)
+    if lovelace is None or getattr(lovelace, "resource_mode", None) != "storage" or resources is None:
+        # No editable storage-mode resource list: load the module directly so
+        # the card is still defined for the dashboard.
+        frontend.add_extra_js_url(hass, _CARD_URL)
+        return
+
+    if not resources.loaded:
+        await resources.async_load()
+        resources.loaded = True
+
+    url = f"{_CARD_URL}?v={version}"
+    for item in resources.async_items():
+        # Match on the path only, so an existing entry (ours or a manually added
+        # one) is updated in place instead of duplicated.
+        if item["url"].split("?")[0] == _CARD_URL:
+            if item["url"] != url:
+                await resources.async_update_item(
+                    item["id"], {"res_type": "module", "url": url}
+                )
+            return
+
+    await resources.async_create_item({"res_type": "module", "url": url})
+    _LOGGER.debug("Registered Lovelace card resource %s", url)
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: PoorMansACConfigEntry) -> bool:

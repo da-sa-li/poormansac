@@ -56,9 +56,17 @@ recommended.
 ## Lovelace card
 
 The integration bundles an experimental **psychrometric (Carrier) chart** card
-and registers it automatically — no manual resource setup is needed. Once the
-integration is loaded the card appears in the dashboard's *Add card* picker as
-**"Poor Man's AC Psychrometric Chart"**.
+and registers it automatically as a Lovelace JavaScript-module resource — for
+the default *storage-mode* dashboards no manual setup under *Settings →
+Dashboard → Resources* is needed. Once the integration is loaded the card
+appears in the dashboard's *Add card* picker as **"Poor Man's AC Psychrometric
+Chart"** (a browser refresh may be required the first time).
+
+If you run your dashboards in **YAML mode**, Home Assistant manages resources
+from your own YAML and the integration cannot edit it; the module is still
+loaded globally so the card works, but if you maintain a `resources:` list
+yourself add `/poormansac_frontend/poormansac-psychrometric-card.js` as a
+`module` there.
 
 It plots the **current air state** as a point on a dry-bulb-temperature (x-axis)
 vs. water-loading `x` (right y-axis, g/kg) chart, draws **constant
