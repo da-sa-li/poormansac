@@ -26,6 +26,13 @@ const wRH = (t, p, rh) => {
 // Saturation mixing ratio in kg_water/kg_dry_air from T (degC) and pressure (Pa).
 const wSat = (t, p) => wRH(t, p, 1);
 
+// Relative humidity (0..1) from mixing ratio w (kg/kg), T (degC) and pressure
+// (Pa). Inverts wRH: e = p*w/(EPSILON + w), then rh = e / eSat(t).
+const rhFromW = (w, t, p) => (p * w) / (EPSILON + w) / eSat(t);
+
+// Keys selectable for the state-point label, in display order.
+const POINT_LABEL_KEYS = ["t", "x", "hi", "rh"];
+
 const SVG_NS = "http://www.w3.org/2000/svg";
 
 class PoorMansACPsychrometricCard extends HTMLElement {
@@ -57,6 +64,7 @@ class PoorMansACPsychrometricCard extends HTMLElement {
       x_min: 0,
       x_max: 50,
       rh_lines: 5,
+      point_label: ["t", "x", "hi"],
       ...config,
     };
     for (const k of ["t_min", "t_max", "x_min", "x_max"]) {
@@ -67,6 +75,12 @@ class PoorMansACPsychrometricCard extends HTMLElement {
     const n = Number(this._config.rh_lines);
     if (!Number.isInteger(n) || n < 0) {
       throw new Error('Invalid "rh_lines": expected a non-negative integer.');
+    }
+    const labels = this._config.point_label;
+    if (!Array.isArray(labels) || labels.some((k) => !POINT_LABEL_KEYS.includes(k))) {
+      throw new Error(
+        `Invalid "point_label": expected a list of [${POINT_LABEL_KEYS.join(", ")}].`
+      );
     }
     if (Number(this._config.t_min) >= Number(this._config.t_max)) {
       throw new Error('"t_min" must be smaller than "t_max".');
@@ -250,13 +264,22 @@ class PoorMansACPsychrometricCard extends HTMLElement {
         cx: X(T), cy: Y(xg), r: 5, fill: colPoint,
         stroke: "var(--card-background-color, #fff)", "stroke-width": 1.5,
       });
+      // Label content is selected via point_label; each value is dropped when
+      // it is not available, and the whole label is skipped when none remain.
       const hi = Number(a.heat_index);
-      const lbl =
-        T.toFixed(1) + " °C · " + xg.toFixed(1) + " g/kg" +
-        (Number.isFinite(hi) ? " · HI " + hi.toFixed(1) + " °C" : "");
-      text(X(T) + 9, Y(xg) - 8, lbl, {
-        "text-anchor": "start", fill: "var(--primary-text-color, #212121)",
-      });
+      const rh = rhFromW(xg / 1000, T, pPa);
+      const parts = {
+        t: T.toFixed(1) + " °C",
+        x: xg.toFixed(1) + " g/kg",
+        hi: Number.isFinite(hi) ? "HI " + hi.toFixed(1) + " °C" : null,
+        rh: Number.isFinite(rh) ? "RH " + Math.round(rh * 100) + " %" : null,
+      };
+      const lbl = cfg.point_label.map((k) => parts[k]).filter(Boolean).join(" · ");
+      if (lbl) {
+        text(X(T) + 9, Y(xg) - 8, lbl, {
+          "text-anchor": "start", fill: "var(--primary-text-color, #212121)",
+        });
+      }
     } else {
       text(m.l + pw / 2, m.t + ph / 2, "State unavailable", {
         "text-anchor": "middle", fill: colText,

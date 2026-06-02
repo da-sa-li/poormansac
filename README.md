@@ -78,6 +78,9 @@ entity: binary_sensor.poor_man_s_ac_adiabatic_cooling_recommended
 # rh_lines: 5   # number of equally spaced rel.-humidity curves;
 #              # the top one is the 100 % saturation curve, 0 % is never drawn,
 #              # and 0 hides them entirely
+# point_label: [t, x, hi]   # which values to show next to the state point;
+#                           # any of t (temperature), x (mixing ratio),
+#                           # hi (heat index), rh (rel. humidity); [] hides it
 ```
 
 The card reads everything it needs from the binary sensor's attributes
