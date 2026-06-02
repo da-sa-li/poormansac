@@ -35,4 +35,4 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install pytest
-      - run: pytest -q
+      - run: pytest -q -m thermodynamics
