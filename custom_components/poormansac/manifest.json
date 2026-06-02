@@ -2,6 +2,7 @@
   "domain": "poormansac",
   "name": "Poor Man's AC",
   "codeowners": ["@da-sa-li"],
+  "after_dependencies": ["lovelace"],
   "config_flow": true,
   "dependencies": ["frontend", "http"],
   "documentation": "https://github.com/da-sa-li/poormansac",
