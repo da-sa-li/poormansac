@@ -12,6 +12,11 @@ import pytest
 import calc
 import const
 
+# Every test in this module exercises the pure thermodynamic calculations in
+# ``calc.py``; the ``thermodynamics`` marker lets the CI job of the same name
+# select exactly these tests (see ``pytest.ini`` and ``.github/workflows/test.yml``).
+pytestmark = pytest.mark.thermodynamics
+
 # Standard sea-level pressure used across several tests.
 P0 = 101325.0  # Pa
 
