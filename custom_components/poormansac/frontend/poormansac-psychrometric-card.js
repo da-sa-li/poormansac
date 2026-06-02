@@ -16,11 +16,15 @@ const EPSILON = 0.621945; // == calc._EPSILON (ratio of molar masses water/air)
 // Saturation vapour pressure over water in Pa from temperature in degC (Magnus).
 const eSat = (t) => 611.2 * Math.exp((17.62 * t) / (243.12 + t));
 
-// Saturation mixing ratio in kg_water/kg_dry_air from T (degC) and pressure (Pa).
-const wSat = (t, p) => {
-  const e = eSat(t);
+// Mixing ratio in kg_water/kg_dry_air at relative humidity rh (0..1) from
+// T (degC) and pressure (Pa). rh = 1 gives the saturation mixing ratio.
+const wRH = (t, p, rh) => {
+  const e = rh * eSat(t);
   return (EPSILON * e) / (p - e);
 };
+
+// Saturation mixing ratio in kg_water/kg_dry_air from T (degC) and pressure (Pa).
+const wSat = (t, p) => wRH(t, p, 1);
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 
@@ -163,26 +167,55 @@ class PoorMansACPsychrometricCard extends HTMLElement {
     const pHpa = st ? Number(st.attributes.pressure) : NaN;
     const pPa = Number.isFinite(pHpa) && pHpa > 0 ? pHpa * 100 : 101325;
 
-    // --- saturation curve (100% RH), clamped to the top edge ---
-    let d = "";
-    let pT = null;
-    let pX = null;
-    for (let t = tMin; t <= tMax + 1e-9; t += 1) {
-      const xg = wSat(t, pPa) * 1000;
-      if (xg <= xMax) {
-        d += (d === "" ? "M" : "L") + X(t).toFixed(1) + " " + Y(xg).toFixed(1) + " ";
-        pT = t;
-        pX = xg;
-      } else {
-        if (pT !== null) {
-          const f = (xMax - pX) / (xg - pX);
-          const tc = pT + f * (t - pT);
-          d += "L" + X(tc).toFixed(1) + " " + Y(xMax).toFixed(1) + " ";
+    // --- constant relative-humidity curves, clamped to the chart bounds ---
+    // Each curve x(T) = wRH(T, p, rh) rises with T; like the saturation curve it
+    // is clamped to the top edge (x = xMax) when it leaves through the top. The
+    // returned point is where the (visible) curve ends, used to anchor a label.
+    const rhPath = (rh) => {
+      let d = "";
+      let pT = null;
+      let pX = null;
+      let endT = null;
+      let endX = null;
+      for (let t = tMin; t <= tMax + 1e-9; t += 1) {
+        const xg = wRH(t, pPa, rh) * 1000;
+        if (xg <= xMax) {
+          d += (d === "" ? "M" : "L") + X(t).toFixed(1) + " " + Y(xg).toFixed(1) + " ";
+          pT = t;
+          pX = xg;
+          endT = t;
+          endX = xg;
+        } else {
+          if (pT !== null) {
+            const f = (xMax - pX) / (xg - pX);
+            const tc = pT + f * (t - pT);
+            d += "L" + X(tc).toFixed(1) + " " + Y(xMax).toFixed(1) + " ";
+            endT = tc;
+            endX = xMax;
+          }
+          break;
         }
-        break;
+      }
+      return { d, endT, endX };
+    };
+
+    // Iso-RH lines (drawn first, so the saturation curve and the state point sit
+    // on top). Thin, in the saturation colour at reduced opacity, each labelled.
+    for (const rh of [0.2, 0.4, 0.6, 0.8]) {
+      const { d, endT, endX } = rhPath(rh);
+      if (!d) continue;
+      add("path", {
+        d, fill: "none", stroke: colSat, "stroke-width": 0.75, opacity: 0.5,
+      });
+      if (endT !== null) {
+        text(X(endT) - 2, Y(endX) - 3, Math.round(rh * 100) + "%", {
+          "text-anchor": "end", fill: colSat, opacity: 0.8, "font-size": "9px",
+        });
       }
     }
-    add("path", { d, fill: "none", stroke: colSat, "stroke-width": 1.5 });
+
+    // --- saturation curve (100% RH), clamped to the top edge ---
+    add("path", { d: rhPath(1).d, fill: "none", stroke: colSat, "stroke-width": 1.5 });
 
     // --- current state + isenthalpic cooling line ---
     const a = st ? st.attributes : {};
@@ -222,6 +255,7 @@ class PoorMansACPsychrometricCard extends HTMLElement {
     // --- legend (upper-left, above the saturation curve) ---
     const legend = [
       { c: colSat, s: "Saturation (100% RH)" },
+      { c: colSat, thin: true, s: "Rel. humidity 20–80%" },
       { c: colPoint, dot: true, s: "Current state" },
       { c: colCool, dash: true, s: "Cooling line" },
     ];
@@ -232,7 +266,8 @@ class PoorMansACPsychrometricCard extends HTMLElement {
       } else {
         add("line", {
           x1: m.l + 6, y1: ly - 3, x2: m.l + 20, y2: ly - 3,
-          stroke: it.c, "stroke-width": 2,
+          stroke: it.c, "stroke-width": it.thin ? 0.75 : 2,
+          ...(it.thin ? { opacity: 0.5 } : {}),
           ...(it.dash ? { "stroke-dasharray": "5 3" } : {}),
         });
       }
