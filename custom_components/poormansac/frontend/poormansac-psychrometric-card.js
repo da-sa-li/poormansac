@@ -58,7 +58,15 @@ class PoorMansACPsychrometricCard extends HTMLElement {
   }
 
   set hass(hass) {
+    const prev = this._hass;
     this._hass = hass;
+    // Lovelace calls this on every state change in HA; only repaint when the
+    // configured entity's state object actually changed (HA keeps the same
+    // object reference while nothing changed).
+    const ent = this._config && this._config.entity;
+    if (this._built && prev && ent && prev.states[ent] === hass.states[ent]) {
+      return;
+    }
     this._render();
   }
 

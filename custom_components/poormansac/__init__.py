@@ -44,13 +44,18 @@ async def _async_register_frontend(hass: HomeAssistant) -> None:
     """
     if hass.data.get(_FRONTEND_REGISTERED_KEY):
         return
+    # Set before awaiting to win the race between concurrent entry setups; reset
+    # on failure so a later setup retry registers the card instead of serving 404.
     hass.data[_FRONTEND_REGISTERED_KEY] = True
-
-    frontend_dir = Path(__file__).parent / "frontend"
-    await hass.http.async_register_static_paths(
-        [StaticPathConfig(_FRONTEND_URL_BASE, str(frontend_dir), False)]
-    )
-    frontend.add_extra_js_url(hass, _CARD_URL)
+    try:
+        frontend_dir = Path(__file__).parent / "frontend"
+        await hass.http.async_register_static_paths(
+            [StaticPathConfig(_FRONTEND_URL_BASE, str(frontend_dir), cache_headers=False)]
+        )
+        frontend.add_extra_js_url(hass, _CARD_URL)
+    except Exception:
+        hass.data[_FRONTEND_REGISTERED_KEY] = False
+        raise
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: PoorMansACConfigEntry) -> bool:
