@@ -50,6 +50,12 @@ is an **empirical fit in degrees Celsius**, mixed with the absolute temperature
 temperature in **°C**, not Kelvin. Note that `dHI/dT` has the same numeric
 value in °C or K, because it is a per-kelvin *interval* derivative.
 
+The same fit also carries the ambient **pressure** through the moisture term
+(the vapour-pressure-like product `p * x`). The fit was produced with `p` in
+**kPa**, but the coefficients are stored **per pascal** (linear-in-`p` ÷ 1e3,
+quadratic-in-`p` ÷ 1e6) so the functions take pressure in **Pa** like the rest
+of the math — i.e. a model constant kept in SI, no conversion at the call site.
+
 When adding a value: if it feeds the math directly, express it in SI; if it
 crosses the entity/config boundary, convert it there, not inside `calc.py`.
 
