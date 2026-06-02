@@ -304,18 +304,21 @@ class PoorMansACPsychrometricCard extends HTMLElement {
       if (Number.isFinite(dxdt) && dxdt !== 0) {
         const seg = this._coolingLine(T, xg / 1000, dxdt, pPa, tMin, xMax / 1000);
         if (seg && seg.t < T - 1e-6) {
-          const dash = { "stroke-width": 2, "stroke-dasharray": "5 3", "stroke-linecap": "round" };
+          // Dash patterns differ so color-blind users can also distinguish segments.
+          const dashBlu = { "stroke-width": 2, "stroke-dasharray": "5 3", "stroke-linecap": "round" };
+          const dashRed = { "stroke-width": 2, "stroke-dasharray": "2 5", "stroke-linecap": "round" };
           const hasOpt = seg.tOpt !== null && seg.tOpt > seg.t + 1e-6 && seg.tOpt < T - 1e-6;
           if (hasOpt) {
             const xgOpt = (xg / 1000 + dxdt * (seg.tOpt - T)) * 1000; // g/kg at optimum
             add("line", { x1: X(T), y1: Y(xg), x2: X(seg.tOpt), y2: Y(xgOpt),
-              stroke: colCoolBlu, ...dash });
+              stroke: colCoolBlu, ...dashBlu });
             add("line", { x1: X(seg.tOpt), y1: Y(xgOpt), x2: X(seg.t), y2: Y(seg.x * 1000),
-              stroke: colCoolRed, ...dash });
+              stroke: colCoolRed, ...dashRed });
           } else {
-            const col = _dHICooling(T, xg / 1000, dxdt) >= 0 ? colCoolBlu : colCoolRed;
+            const beneficial = _dHICooling(T, xg / 1000, dxdt) >= 0;
             add("line", { x1: X(T), y1: Y(xg), x2: X(seg.t), y2: Y(seg.x * 1000),
-              stroke: col, ...dash });
+              stroke: beneficial ? colCoolBlu : colCoolRed,
+              ...(beneficial ? dashBlu : dashRed) });
           }
         }
       }
@@ -358,8 +361,8 @@ class PoorMansACPsychrometricCard extends HTMLElement {
       legend.push({ c: colSat, thin: true, s: "Rel. humidity " + range });
     }
     legend.push({ c: colPoint, dot: true, s: "Current state" });
-    legend.push({ c: colCoolBlu, dash: true, s: "Cooling beneficial" });
-    legend.push({ c: colCoolRed, dash: true, s: "Cooling detrimental" });
+    legend.push({ c: colCoolBlu, dashArray: "5 3", s: "Cooling beneficial" });
+    legend.push({ c: colCoolRed, dashArray: "2 5", s: "Cooling detrimental" });
     let ly = m.t + 12;
     for (const it of legend) {
       if (it.dot) {
@@ -369,7 +372,7 @@ class PoorMansACPsychrometricCard extends HTMLElement {
           x1: m.l + 6, y1: ly - 3, x2: m.l + 20, y2: ly - 3,
           stroke: it.c, "stroke-width": it.thin ? 0.75 : 2,
           ...(it.thin ? { opacity: 0.5 } : {}),
-          ...(it.dash ? { "stroke-dasharray": "5 3" } : {}),
+          ...(it.dashArray ? { "stroke-dasharray": it.dashArray } : {}),
         });
       }
       text(m.l + 26, ly, it.s, { "text-anchor": "start" });
@@ -394,7 +397,7 @@ class PoorMansACPsychrometricCard extends HTMLElement {
       const xn = xLine(tn);
       const currDHI = _dHICooling(tn, xn, dxdt);
       // Detect the first beneficial → detrimental crossing (+ → −).
-      if (tOpt === null && prevDHI > 0 && currDHI < 0) {
+      if (tOpt === null && prevDHI > 0 && currDHI <= 0) {
         const f = prevDHI / (prevDHI - currDHI); // linear interpolation fraction
         tOpt = t - f * step;
       }
@@ -407,7 +410,19 @@ class PoorMansACPsychrometricCard extends HTMLElement {
         return { t: tc, x: wSat(tc, p), tOpt };
       }
       if (tn <= tFloor || xn >= xCeil) {
-        return { t: Math.max(tn, tFloor), x: Math.min(xn, xCeil), tOpt };
+        // Interpolate the exact boundary crossing rather than clamping, so the
+        // returned point always lies on the isenthalpic line.
+        const hits = [];
+        if (tn <= tFloor) hits.push({ t: tFloor, x: xLine(tFloor) });
+        if (xn >= xCeil) {
+          const f = (xCeil - xLine(t)) / (xn - xLine(t));
+          hits.push({ t: t + f * (tn - t), x: xCeil });
+        }
+        const end = hits.reduce(
+          (best, hit) => (best === null || hit.t > best.t ? hit : best),
+          null
+        );
+        return { ...end, tOpt };
       }
       t = tn;
       prevDHI = currDHI;
