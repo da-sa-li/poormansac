@@ -86,7 +86,7 @@ def d_hi_d_t(t: float, x: float) -> float:
         - 15.7986 * e1 * tk * x
         + 0.712523 * e1 * t * tk * x
         - 0.00687847 * e1 * t * t * tk * x
-        - 111.839 * e2 * tk * x2
+        - 111.8394 * e2 * tk * x2
         + 4.93978 * e2 * t * tk * x2
         - 0.0243904 * e2 * t * t * tk * x2
         + 8.43093 * e2 * tk2 * x2
@@ -105,7 +105,7 @@ def d_hi_d_x(t: float, x: float) -> float:
         136.452 * e1 * tk
         - 8.5257 * e1 * t * tk
         + 0.129052 * e1 * t * t * tk
-        - 111.839 * e2 * tk2 * x
+        - 111.8394 * e2 * tk2 * x
         + 4.93978 * e2 * t * tk2 * x
         - 0.0243904 * e2 * t * t * tk2 * x
     )
