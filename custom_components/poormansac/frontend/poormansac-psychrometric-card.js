@@ -16,11 +16,27 @@ const EPSILON = 0.621945; // == calc._EPSILON (ratio of molar masses water/air)
 // Saturation vapour pressure over water in Pa from temperature in degC (Magnus).
 const eSat = (t) => 611.2 * Math.exp((17.62 * t) / (243.12 + t));
 
-// Saturation mixing ratio in kg_water/kg_dry_air from T (degC) and pressure (Pa).
-const wSat = (t, p) => {
-  const e = eSat(t);
+// Mixing ratio in kg_water/kg_dry_air at relative humidity rh (0..1) from
+// T (degC) and pressure (Pa). rh = 1 gives the saturation mixing ratio.
+const wRH = (t, p, rh) => {
+  const e = rh * eSat(t);
   return (EPSILON * e) / (p - e);
 };
+
+// Saturation mixing ratio in kg_water/kg_dry_air from T (degC) and pressure (Pa).
+const wSat = (t, p) => wRH(t, p, 1);
+
+// Relative humidity (0..1) from mixing ratio w (kg/kg), T (degC) and pressure
+// (Pa). Inverts wRH: e = p*w/(EPSILON + w), then rh = e / eSat(t).
+const rhFromW = (w, t, p) => (p * w) / (EPSILON + w) / eSat(t);
+
+// Keys selectable for the state-point label, in display order.
+const POINT_LABEL_KEYS = ["t", "x", "hi", "rh"];
+
+// Upper bound on rh_lines, so a misconfiguration can't spawn an unbounded
+// number of SVG paths and stall the frontend. 100 curves is already far denser
+// than the chart can usefully show.
+const MAX_RH_LINES = 100;
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 
@@ -52,12 +68,27 @@ class PoorMansACPsychrometricCard extends HTMLElement {
       t_max: 40,
       x_min: 0,
       x_max: 50,
+      rh_lines: 5,
+      point_label: ["t", "x", "hi"],
       ...config,
     };
     for (const k of ["t_min", "t_max", "x_min", "x_max"]) {
       if (!Number.isFinite(Number(this._config[k]))) {
         throw new Error(`Invalid "${k}": expected a finite number.`);
       }
+    }
+    const n = Number(this._config.rh_lines);
+    if (!Number.isInteger(n) || n < 0 || n > MAX_RH_LINES) {
+      throw new Error(
+        `Invalid "rh_lines": expected an integer between 0 and ${MAX_RH_LINES}.`
+      );
+    }
+    this._config.rh_lines = n;
+    const labels = this._config.point_label;
+    if (!Array.isArray(labels) || labels.some((k) => !POINT_LABEL_KEYS.includes(k))) {
+      throw new Error(
+        `Invalid "point_label": expected a list of [${POINT_LABEL_KEYS.join(", ")}].`
+      );
     }
     if (Number(this._config.t_min) >= Number(this._config.t_max)) {
       throw new Error('"t_min" must be smaller than "t_max".');
@@ -163,26 +194,71 @@ class PoorMansACPsychrometricCard extends HTMLElement {
     const pHpa = st ? Number(st.attributes.pressure) : NaN;
     const pPa = Number.isFinite(pHpa) && pHpa > 0 ? pHpa * 100 : 101325;
 
-    // --- saturation curve (100% RH), clamped to the top edge ---
-    let d = "";
-    let pT = null;
-    let pX = null;
-    for (let t = tMin; t <= tMax + 1e-9; t += 1) {
-      const xg = wSat(t, pPa) * 1000;
-      if (xg <= xMax) {
-        d += (d === "" ? "M" : "L") + X(t).toFixed(1) + " " + Y(xg).toFixed(1) + " ";
-        pT = t;
-        pX = xg;
-      } else {
-        if (pT !== null) {
+    // --- constant relative-humidity curves, clamped to the chart bounds ---
+    // Each curve x(T) = wRH(T, p, rh) rises monotonically with T, so it enters
+    // the plot area once through the bottom edge (x = xMin) and leaves once
+    // through the top edge (x = xMax); both crossings are interpolated so the
+    // visible path stays inside [xMin, xMax]. The returned point is where the
+    // visible curve ends, used to anchor a label.
+    const rhPath = (rh) => {
+      let d = "";
+      let pT = null;
+      let pX = null;
+      let endT = null;
+      let endX = null;
+      for (let t = tMin; t <= tMax + 1e-9; t += 1) {
+        const xg = wRH(t, pPa, rh) * 1000;
+        // Entering from below the bottom edge: start the path at xMin.
+        if (pT !== null && pX < xMin && xg >= xMin) {
+          const f = (xMin - pX) / (xg - pX);
+          const te = pT + f * (t - pT);
+          d += (d === "" ? "M" : "L") + X(te).toFixed(1) + " " + Y(xMin).toFixed(1) + " ";
+          endT = te;
+          endX = xMin;
+        }
+        // Leaving through the top edge: finish the path at xMax and stop.
+        if (pT !== null && pX <= xMax && xg > xMax) {
           const f = (xMax - pX) / (xg - pX);
           const tc = pT + f * (t - pT);
-          d += "L" + X(tc).toFixed(1) + " " + Y(xMax).toFixed(1) + " ";
+          d += (d === "" ? "M" : "L") + X(tc).toFixed(1) + " " + Y(xMax).toFixed(1) + " ";
+          endT = tc;
+          endX = xMax;
+          break;
         }
-        break;
+        if (xg >= xMin && xg <= xMax) {
+          d += (d === "" ? "M" : "L") + X(t).toFixed(1) + " " + Y(xg).toFixed(1) + " ";
+          endT = t;
+          endX = xg;
+        }
+        pT = t;
+        pX = xg;
+      }
+      return { d, endT, endX };
+    };
+
+    // rh_lines = N draws N equally spaced curves at i/N for i = 1..N, so the
+    // top one is the saturation curve (100% RH) and 0% RH is never drawn; N = 0
+    // draws nothing. Lower-RH lines are drawn first so the saturation curve and
+    // the state point sit on top. The saturation curve is thick and labelled via
+    // the legend; the inner iso-lines are thin, dimmed, and labelled in place.
+    const nRH = Number(cfg.rh_lines);
+    for (let i = 1; i <= nRH; i++) {
+      const rh = i / nRH;
+      const { d, endT, endX } = rhPath(rh);
+      if (!d) continue;
+      if (rh >= 1 - 1e-9) {
+        add("path", { d, fill: "none", stroke: colSat, "stroke-width": 1.5 });
+      } else {
+        add("path", {
+          d, fill: "none", stroke: colSat, "stroke-width": 0.75, opacity: 0.5,
+        });
+        if (endT !== null) {
+          text(X(endT) - 2, Y(endX) - 3, Math.round(rh * 100) + "%", {
+            "text-anchor": "end", fill: colSat, opacity: 0.8, "font-size": "9px",
+          });
+        }
       }
     }
-    add("path", { d, fill: "none", stroke: colSat, "stroke-width": 1.5 });
 
     // --- current state + isenthalpic cooling line ---
     const a = st ? st.attributes : {};
@@ -206,13 +282,22 @@ class PoorMansACPsychrometricCard extends HTMLElement {
         cx: X(T), cy: Y(xg), r: 5, fill: colPoint,
         stroke: "var(--card-background-color, #fff)", "stroke-width": 1.5,
       });
+      // Label content is selected via point_label; each value is dropped when
+      // it is not available, and the whole label is skipped when none remain.
       const hi = Number(a.heat_index);
-      const lbl =
-        T.toFixed(1) + " °C · " + xg.toFixed(1) + " g/kg" +
-        (Number.isFinite(hi) ? " · HI " + hi.toFixed(1) + " °C" : "");
-      text(X(T) + 9, Y(xg) - 8, lbl, {
-        "text-anchor": "start", fill: "var(--primary-text-color, #212121)",
-      });
+      const rh = rhFromW(xg / 1000, T, pPa);
+      const parts = {
+        t: T.toFixed(1) + " °C",
+        x: xg.toFixed(1) + " g/kg",
+        hi: Number.isFinite(hi) ? "HI " + hi.toFixed(1) + " °C" : null,
+        rh: Number.isFinite(rh) ? "RH " + Math.round(rh * 100) + " %" : null,
+      };
+      const lbl = cfg.point_label.map((k) => parts[k]).filter(Boolean).join(" · ");
+      if (lbl) {
+        text(X(T) + 9, Y(xg) - 8, lbl, {
+          "text-anchor": "start", fill: "var(--primary-text-color, #212121)",
+        });
+      }
     } else {
       text(m.l + pw / 2, m.t + ph / 2, "State unavailable", {
         "text-anchor": "middle", fill: colText,
@@ -220,11 +305,19 @@ class PoorMansACPsychrometricCard extends HTMLElement {
     }
 
     // --- legend (upper-left, above the saturation curve) ---
-    const legend = [
-      { c: colSat, s: "Saturation (100% RH)" },
-      { c: colPoint, dot: true, s: "Current state" },
-      { c: colCool, dash: true, s: "Cooling line" },
-    ];
+    const legend = [];
+    if (nRH >= 1) {
+      legend.push({ c: colSat, s: "Saturation (100% RH)" });
+    }
+    if (nRH >= 2) {
+      const step = 100 / nRH;
+      const lo = Math.round(step);
+      const hi = Math.round((nRH - 1) * step);
+      const range = lo === hi ? lo + "%" : lo + "–" + hi + "%";
+      legend.push({ c: colSat, thin: true, s: "Rel. humidity " + range });
+    }
+    legend.push({ c: colPoint, dot: true, s: "Current state" });
+    legend.push({ c: colCool, dash: true, s: "Cooling line" });
     let ly = m.t + 12;
     for (const it of legend) {
       if (it.dot) {
@@ -232,7 +325,8 @@ class PoorMansACPsychrometricCard extends HTMLElement {
       } else {
         add("line", {
           x1: m.l + 6, y1: ly - 3, x2: m.l + 20, y2: ly - 3,
-          stroke: it.c, "stroke-width": 2,
+          stroke: it.c, "stroke-width": it.thin ? 0.75 : 2,
+          ...(it.thin ? { opacity: 0.5 } : {}),
           ...(it.dash ? { "stroke-dasharray": "5 3" } : {}),
         });
       }

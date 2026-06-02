@@ -61,9 +61,10 @@ integration is loaded the card appears in the dashboard's *Add card* picker as
 **"Poor Man's AC Psychrometric Chart"**.
 
 It plots the **current air state** as a point on a dry-bulb-temperature (x-axis)
-vs. water-loading `x` (right y-axis, g/kg) chart, draws the **100 % saturation
-curve**, and shows the **isenthalpic cooling line** — the path along which
-evaporative cooling would move the air (up and to the left, toward saturation).
+vs. water-loading `x` (right y-axis, g/kg) chart, draws **constant
+relative-humidity curves** (including the **100 % saturation curve**), and shows
+the **isenthalpic cooling line** — the path along which evaporative cooling
+would move the air (up and to the left, toward saturation).
 
 ```yaml
 type: custom:poormansac-psychrometric-card
@@ -74,8 +75,15 @@ entity: binary_sensor.poor_man_s_ac_adiabatic_cooling_recommended
 # t_max: 40
 # x_min: 0
 # x_max: 50
+# rh_lines: 5   # number of equally spaced rel.-humidity curves;
+#              # the top one is the 100 % saturation curve, 0 % is never drawn,
+#              # and 0 hides them entirely
+# point_label: [t, x, hi]   # which values to show next to the state point;
+#                           # any of t (temperature), x (mixing ratio),
+#                           # hi (heat index), rh (rel. humidity); [] hides it
 ```
 
 The card reads everything it needs from the binary sensor's attributes
 (`temperature`, `mixing_ratio`, `pressure`, `dx_dt`) and recomputes only the
-saturation curve, using the same effective pressure the integration used for `x`.
+relative-humidity curves, using the same effective pressure the integration used
+for `x`.
