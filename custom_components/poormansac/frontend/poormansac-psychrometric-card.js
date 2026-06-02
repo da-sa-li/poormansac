@@ -54,6 +54,17 @@ class PoorMansACPsychrometricCard extends HTMLElement {
       x_max: 50,
       ...config,
     };
+    for (const k of ["t_min", "t_max", "x_min", "x_max"]) {
+      if (!Number.isFinite(Number(this._config[k]))) {
+        throw new Error(`Invalid "${k}": expected a finite number.`);
+      }
+    }
+    if (Number(this._config.t_min) >= Number(this._config.t_max)) {
+      throw new Error('"t_min" must be smaller than "t_max".');
+    }
+    if (Number(this._config.x_min) >= Number(this._config.x_max)) {
+      throw new Error('"x_min" must be smaller than "x_max".');
+    }
     this._built = false;
   }
 
@@ -233,17 +244,28 @@ class PoorMansACPsychrometricCard extends HTMLElement {
   // Isenthalpic cooling line end point {t, x(kg/kg)}: walk T down, x rises,
   // stop at the saturation curve or the chart bounds.
   _coolingLine(t0, x0, dxdt, p, tFloor, xCeil) {
+    const xLine = (t) => x0 + dxdt * (t - t0);
+    // Already at/above saturation: evaporative cooling can't help; collapse.
+    if (xLine(t0) >= wSat(t0, p)) return { t: t0, x: xLine(t0) };
     let t = t0;
     const step = 0.1;
     for (let i = 0; i < 2000; i++) {
       const tn = t - step;
-      const xn = x0 + dxdt * (tn - t0);
-      if (xn >= wSat(tn, p) || tn <= tFloor || xn >= xCeil) {
+      const xn = xLine(tn);
+      if (xn >= wSat(tn, p)) {
+        // Crossing in [tn, t]: interpolate the residual (line - wSat) to zero so
+        // the endpoint lands exactly on the saturation curve, not above it.
+        const r = xLine(t) - wSat(t, p);
+        const rn = xn - wSat(tn, p);
+        const tc = t + (r / (r - rn)) * (tn - t);
+        return { t: tc, x: wSat(tc, p) };
+      }
+      if (tn <= tFloor || xn >= xCeil) {
         return { t: Math.max(tn, tFloor), x: Math.min(xn, xCeil) };
       }
       t = tn;
     }
-    return { t, x: x0 + dxdt * (t - t0) };
+    return { t, x: xLine(t) };
   }
 }
 

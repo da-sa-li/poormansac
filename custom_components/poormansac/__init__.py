@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 
 from homeassistant.components import frontend
@@ -22,6 +23,7 @@ _FRONTEND_URL_BASE = "/poormansac_frontend"
 _CARD_FILENAME = "poormansac-psychrometric-card.js"
 _CARD_URL = f"{_FRONTEND_URL_BASE}/{_CARD_FILENAME}"
 _FRONTEND_REGISTERED_KEY = f"{DOMAIN}_frontend_registered"
+_FRONTEND_LOCK_KEY = f"{DOMAIN}_frontend_lock"
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: PoorMansACConfigEntry) -> bool:
@@ -39,23 +41,23 @@ async def async_setup_entry(hass: HomeAssistant, entry: PoorMansACConfigEntry) -
 async def _async_register_frontend(hass: HomeAssistant) -> None:
     """Serve the bundled Lovelace card and auto-load it as a JS module.
 
-    Runs once per Home Assistant instance; the guard makes a second config
-    entry safe, since registering the same static path twice would raise.
+    Registration happens once per Home Assistant instance. A lock serialises
+    concurrent config-entry setups, and the success flag is only set after the
+    work completes, so a failed attempt is retried by the next setup instead of
+    leaving the card unregistered.
     """
     if hass.data.get(_FRONTEND_REGISTERED_KEY):
         return
-    # Set before awaiting to win the race between concurrent entry setups; reset
-    # on failure so a later setup retry registers the card instead of serving 404.
-    hass.data[_FRONTEND_REGISTERED_KEY] = True
-    try:
+    lock = hass.data.setdefault(_FRONTEND_LOCK_KEY, asyncio.Lock())
+    async with lock:
+        if hass.data.get(_FRONTEND_REGISTERED_KEY):
+            return
         frontend_dir = Path(__file__).parent / "frontend"
         await hass.http.async_register_static_paths(
             [StaticPathConfig(_FRONTEND_URL_BASE, str(frontend_dir), cache_headers=False)]
         )
         frontend.add_extra_js_url(hass, _CARD_URL)
-    except Exception:
-        hass.data[_FRONTEND_REGISTERED_KEY] = False
-        raise
+        hass.data[_FRONTEND_REGISTERED_KEY] = True
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: PoorMansACConfigEntry) -> bool:
