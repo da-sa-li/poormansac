@@ -39,6 +39,7 @@ class PoorMansACData:
 
     temperature: float | None = None
     humidity: float | None = None
+    pressure: float | None = None  # effective ambient pressure in Pa (SI)
     absolute_humidity: float | None = None
     mixing_ratio: float | None = None
     heat_index: float | None = None
@@ -64,6 +65,11 @@ class PoorMansACCoordinator(DataUpdateCoordinator[PoorMansACData]):
         self._dx_dt = DEFAULT_DX_DT
         # Boundary conversion: the human-facing hPa fallback -> Pa for the math.
         self._pressure_fallback = DEFAULT_PRESSURE_HPA * 100.0
+
+    @property
+    def dx_dt(self) -> float:
+        """Slope dx/dT of the isenthalpic cooling line, kg_water/(kg_air*K) (SI)."""
+        return self._dx_dt
 
     async def async_initialize(self) -> None:
         """Subscribe to the source entities and compute the initial state."""
@@ -139,6 +145,7 @@ class PoorMansACCoordinator(DataUpdateCoordinator[PoorMansACData]):
         return PoorMansACData(
             temperature=t,
             humidity=rh,
+            pressure=pressure,
             absolute_humidity=calc.absolute_humidity(t, rh) * 1000.0,  # kg/m^3 -> g/m^3
             mixing_ratio=x * 1000.0,  # expose in g_water/kg_air
             heat_index=calc.heat_index(t, x),

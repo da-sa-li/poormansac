@@ -52,3 +52,30 @@ pressure sensor.
 
 `Settings → … → Configure`: the `dHI` threshold below which cooling is
 recommended.
+
+## Lovelace card
+
+The integration bundles an experimental **psychrometric (Carrier) chart** card
+and registers it automatically — no manual resource setup is needed. Once the
+integration is loaded the card appears in the dashboard's *Add card* picker as
+**"Poor Man's AC Psychrometric Chart"**.
+
+It plots the **current air state** as a point on a dry-bulb-temperature (x-axis)
+vs. water-loading `x` (right y-axis, g/kg) chart, draws the **100 % saturation
+curve**, and shows the **isenthalpic cooling line** — the path along which
+evaporative cooling would move the air (up and to the left, toward saturation).
+
+```yaml
+type: custom:poormansac-psychrometric-card
+entity: binary_sensor.poor_man_s_ac_adiabatic_cooling_recommended
+# optional (defaults shown):
+# title: Psychrometric chart
+# t_min: 0
+# t_max: 40
+# x_min: 0
+# x_max: 50
+```
+
+The card reads everything it needs from the binary sensor's attributes
+(`temperature`, `mixing_ratio`, `pressure`, `dx_dt`) and recomputes only the
+saturation curve, using the same effective pressure the integration used for `x`.
