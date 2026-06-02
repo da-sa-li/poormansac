@@ -71,9 +71,9 @@ entity: binary_sensor.poor_man_s_ac_adiabatic_cooling_recommended
 # optional (defaults shown):
 # title: Psychrometric chart
 # t_min: 0
-# t_max: 45
+# t_max: 40
 # x_min: 0
-# x_max: 30
+# x_max: 50
 ```
 
 The card reads everything it needs from the binary sensor's attributes

@@ -49,9 +49,9 @@ class PoorMansACPsychrometricCard extends HTMLElement {
     this._config = {
       title: "Psychrometric chart",
       t_min: 0,
-      t_max: 45,
+      t_max: 40,
       x_min: 0,
-      x_max: 30,
+      x_max: 50,
       ...config,
     };
     this._built = false;
