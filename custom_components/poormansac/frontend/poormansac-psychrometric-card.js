@@ -72,6 +72,27 @@ const MAX_RH_LINES = 100;
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 
+const I18N = {
+  de: {
+    xAxis: "Trockentemperatur [°C]",
+    saturation: "Sättigung (100 % rF)",
+    relHumidity: "Rel. Feuchte ",
+    currentState: "Aktueller Zustand",
+    coolingBeneficial: "Kühlung sinnvoll",
+    coolingDetrimental: "Kühlung schädlich",
+    unavailable: "Zustand nicht verfügbar",
+  },
+  en: {
+    xAxis: "Dry-bulb temperature [°C]",
+    saturation: "Saturation (100% RH)",
+    relHumidity: "Rel. humidity ",
+    currentState: "Current state",
+    coolingBeneficial: "Cooling beneficial",
+    coolingDetrimental: "Cooling detrimental",
+    unavailable: "State unavailable",
+  },
+};
+
 class PoorMansACPsychrometricCard extends HTMLElement {
   static getStubConfig(hass) {
     let entity = "";
@@ -148,6 +169,11 @@ class PoorMansACPsychrometricCard extends HTMLElement {
     return 6;
   }
 
+  _t(key) {
+    const lang = this._hass?.language ?? "en";
+    return (I18N[lang] ?? I18N.en)[key] ?? I18N.en[key];
+  }
+
   _build() {
     this.innerHTML = "";
     const card = document.createElement("ha-card");
@@ -219,7 +245,7 @@ class PoorMansACPsychrometricCard extends HTMLElement {
       text(m.l + pw + 6, y + 3, String(x), { "text-anchor": "start" });
     }
     add("rect", { x: m.l, y: m.t, width: pw, height: ph, fill: "none", stroke: colGrid, "stroke-width": 1 });
-    text(m.l + pw / 2, H - 4, "Dry-bulb temperature [°C]", { "text-anchor": "middle" });
+    text(m.l + pw / 2, H - 4, this._t("xAxis"), { "text-anchor": "middle" });
     text(W - 4, m.t - 4, "x [g/kg]", { "text-anchor": "end" });
 
     // --- effective ambient pressure (hPa attribute -> Pa) ---
@@ -343,7 +369,7 @@ class PoorMansACPsychrometricCard extends HTMLElement {
         });
       }
     } else {
-      text(m.l + pw / 2, m.t + ph / 2, "State unavailable", {
+      text(m.l + pw / 2, m.t + ph / 2, this._t("unavailable"), {
         "text-anchor": "middle", fill: colText,
       });
     }
@@ -351,18 +377,18 @@ class PoorMansACPsychrometricCard extends HTMLElement {
     // --- legend (upper-left, above the saturation curve) ---
     const legend = [];
     if (nRH >= 1) {
-      legend.push({ c: colSat, s: "Saturation (100% RH)" });
+      legend.push({ c: colSat, s: this._t("saturation") });
     }
     if (nRH >= 2) {
       const step = 100 / nRH;
       const lo = Math.round(step);
       const hi = Math.round((nRH - 1) * step);
       const range = lo === hi ? lo + "%" : lo + "–" + hi + "%";
-      legend.push({ c: colSat, thin: true, s: "Rel. humidity " + range });
+      legend.push({ c: colSat, thin: true, s: this._t("relHumidity") + range });
     }
-    legend.push({ c: colPoint, dot: true, s: "Current state" });
-    legend.push({ c: colCoolBlu, dashArray: "5 3", s: "Cooling beneficial" });
-    legend.push({ c: colCoolRed, dashArray: "2 5", s: "Cooling detrimental" });
+    legend.push({ c: colPoint, dot: true, s: this._t("currentState") });
+    legend.push({ c: colCoolBlu, dashArray: "5 3", s: this._t("coolingBeneficial") });
+    legend.push({ c: colCoolRed, dashArray: "2 5", s: this._t("coolingDetrimental") });
     let ly = m.t + 12;
     for (const it of legend) {
       if (it.dot) {
