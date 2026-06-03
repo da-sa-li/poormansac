@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Poor Man's AC</title>
+  <style>
+    :root {
+      --bg:        #f5f6f8;
+      --card:      #ffffff;
+      --border:    #dde1e7;
+      --text:      #1a1d23;
+      --muted:     #6b7280;
+      --green:     #166534;
+      --green-bg:  #dcfce7;
+      --green-br:  #86efac;
+      --red:       #991b1b;
+      --red-bg:    #fee2e2;
+      --red-br:    #fca5a5;
+      --mono:      'Courier New', Courier, monospace;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 2rem 1.25rem 3rem;
+      max-width: 620px;
+      margin: 0 auto;
+      line-height: 1.5;
+    }
+
+    /* ── header ── */
+    h1 { font-size: 1.35rem; font-weight: 700; }
+    .subtitle {
+      color: var(--muted);
+      font-size: 0.875rem;
+      margin-top: 0.2rem;
+      margin-bottom: 1.75rem;
+    }
+
+    /* ── inputs ── */
+    .inputs {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      margin-bottom: 1.25rem;
+    }
+    .input-group { flex: 1; min-width: 140px; }
+    label {
+      display: block;
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 0.3rem;
+    }
+    input[type=number] {
+      width: 100%;
+      padding: 0.45rem 0.7rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 0.95rem;
+      font-family: var(--mono);
+      background: var(--card);
+      color: var(--text);
+      -moz-appearance: textfield;
+    }
+    input[type=number]::-webkit-inner-spin-button,
+    input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
+    input[type=number]:focus {
+      outline: none;
+      border-color: #6366f1;
+      box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
+    }
+
+    /* ── verdict ── */
+    .verdict {
+      border-radius: 8px;
+      border: 1px solid transparent;
+      padding: 0.85rem 1rem;
+      margin-bottom: 1rem;
+      font-weight: 600;
+      font-size: 1rem;
+    }
+    .verdict.yes  { background: var(--green-bg); border-color: var(--green-br); color: var(--green); }
+    .verdict.no   { background: var(--red-bg);   border-color: var(--red-br);   color: var(--red);   }
+    .verdict .sub {
+      font-weight: 400;
+      font-size: 0.82rem;
+      margin-top: 0.25rem;
+      font-family: var(--mono);
+      opacity: 0.85;
+    }
+
+    /* ── cards ── */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem 1.1rem;
+      margin-bottom: 0.75rem;
+    }
+    .card-title {
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 0.65rem;
+    }
+    .row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: 0.18rem 0;
+      font-size: 0.875rem;
+      border-bottom: 1px solid #f1f3f5;
+    }
+    .row:last-child { border-bottom: none; }
+    .row .lbl { color: var(--muted); }
+    .row .val { font-family: var(--mono); font-size: 0.875rem; }
+
+    /* ── formula breakdown ── */
+    .breakdown {
+      background: #f8f9fc;
+      border-radius: 6px;
+      padding: 0.75rem 0.9rem;
+      margin-top: 0.65rem;
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      line-height: 2;
+      white-space: pre;
+    }
+    .breakdown .label { color: var(--muted); }
+    .breakdown .total { font-weight: 700; }
+    .breakdown .term-cool { color: #166534; }
+    .breakdown .term-moist { color: #9a3412; }
+
+    /* ── footer ── */
+    footer {
+      margin-top: 1.5rem;
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+    footer a { color: var(--muted); text-underline-offset: 2px; }
+  </style>
+</head>
+<body>
+
+<h1>Poor Man's AC</h1>
+<p class="subtitle">
+  Does direct evaporative (adiabatic) cooling improve comfort?<br>
+  Enter outdoor conditions; the result matches the Home Assistant integration exactly.
+</p>
+
+<div class="inputs">
+  <div class="input-group">
+    <label for="t">Temperature (°C)</label>
+    <input type="number" id="t" value="30" step="0.1">
+  </div>
+  <div class="input-group">
+    <label for="rh">Rel. humidity (%)</label>
+    <input type="number" id="rh" value="45" step="1" min="0" max="100">
+  </div>
+  <div class="input-group">
+    <label for="p">Pressure (hPa)</label>
+    <input type="number" id="p" value="1013.25" step="0.25">
+  </div>
+</div>
+
+<div id="verdict" class="verdict"></div>
+
+<div class="card">
+  <div class="card-title">Ambient state</div>
+  <div class="row"><span class="lbl">Mixing ratio x</span>       <span class="val" id="x_gkg">—</span></div>
+  <div class="row"><span class="lbl">Absolute humidity</span>    <span class="val" id="abs_hum">—</span></div>
+  <div class="row"><span class="lbl">Heat index HI</span>        <span class="val" id="hi">—</span></div>
+</div>
+
+<div class="card">
+  <div class="card-title">Cooling differential — ΔHI per −1 K of evaporative cooling</div>
+  <div class="row"><span class="lbl">∂HI/∂T</span>              <span class="val" id="dhi_dt">—</span></div>
+  <div class="row"><span class="lbl">∂HI/∂x</span>              <span class="val" id="dhi_dx">—</span></div>
+  <div class="breakdown" id="breakdown"></div>
+</div>
+
+<footer>
+  <a href="https://github.com/da-sa-li/poormansac">da-sa-li/poormansac</a> ·
+  model constants: dx/dT = −0.00041 kg/(kg·K), threshold = 0
+</footer>
+
+<script>
+// ── model constants (const.py) ────────────────────────────────────────────
+const DX_DT     = -0.00041;  // kg_water/(kg_air·K), isenthalpic line slope
+const DELTA_T   = -1.0;      // K, cooling step for the differential
+const THRESHOLD = 0.0;       // dHI < threshold → cooling recommended
+
+// ── calc.py port (1:1 translation, same coefficient values) ───────────────
+const _R_V     = 461.5;
+const _EPSILON = 0.621945;
+
+function saturation_vapour_pressure(t) {
+    return 611.2 * Math.exp(17.62 * t / (243.12 + t));
+}
+
+function mixing_ratio(t, rh, pressure) {
+    const vp = saturation_vapour_pressure(t) * rh / 100.0;
+    return _EPSILON * vp / (pressure - vp);
+}
+
+function absolute_humidity(t, rh) {
+    const vp = saturation_vapour_pressure(t) * rh / 100.0;
+    return vp / (_R_V * (t + 273.15));
+}
+
+function heat_index(t, x, pressure) {
+    const e1 = Math.exp(-0.0533 * t);
+    const e2 = Math.exp(-0.1066 * t);
+    const tk = 273.15 + t, tk2 = tk * tk;
+    const p = pressure, p2 = p * p, x2 = x * x;
+    return (
+        -8.7847
+        + 1.61139 * t
+        - 0.0123081 * t * t
+        + 134.599 * e1 * p * x / tk
+        - 8.40997 * e1 * t * p * x / tk
+        + 0.1273   * e1 * t * t * p * x / tk
+        - 54.4119  * e2 * p2 * x2 / tk2
+        + 2.40329  * e2 * t  * p2 * x2 / tk2
+        - 0.0118664 * e2 * t * t * p2 * x2 / tk2
+    );
+}
+
+function d_hi_d_t(t, x, pressure) {
+    const e1 = Math.exp(-0.0533 * t);
+    const e2 = Math.exp(-0.1066 * t);
+    const tk = 273.15 + t, tk2 = tk * tk, tk3 = tk2 * tk;
+    const p = pressure, p2 = p * p, x2 = x * x;
+    return (
+        1.61139
+        - 0.0246162 * t
+        - 134.599   * e1 * p  * x  / tk2
+        + 8.40997   * e1 * t  * p  * x  / tk2
+        - 0.1273    * e1 * t  * t  * p  * x  / tk2
+        - 15.58410  * e1 * p  * x  / tk
+        + 0.7028514 * e1 * t  * p  * x  / tk
+        - 0.0067851 * e1 * t  * t  * p  * x  / tk
+        + 108.8238  * e2 * p2 * x2 / tk3
+        - 4.80658   * e2 * t  * p2 * x2 / tk3
+        + 0.0237328 * e2 * t  * t  * p2 * x2 / tk3
+        + 8.203599  * e2 * p2 * x2 / tk2
+        - 0.2799235 * e2 * t  * p2 * x2 / tk2
+        + 0.00126496 * e2 * t * t  * p2 * x2 / tk2
+    );
+}
+
+function d_hi_d_x(t, x, pressure) {
+    const e1 = Math.exp(-0.0533 * t);
+    const e2 = Math.exp(-0.1066 * t);
+    const tk = 273.15 + t, tk2 = tk * tk;
+    const p = pressure, p2 = p * p;
+    return (
+        134.599   * e1 * p  / tk
+        - 8.40997  * e1 * t  * p  / tk
+        + 0.1273   * e1 * t  * t  * p  / tk
+        - 108.8238 * e2 * p2 * x  / tk2
+        + 4.80658  * e2 * t  * p2 * x  / tk2
+        - 0.0237328 * e2 * t * t  * p2 * x  / tk2
+    );
+}
+
+// ── UI ────────────────────────────────────────────────────────────────────
+function sp(v, d) {
+    // signed, fixed-decimal
+    return (v >= 0 ? '+' : '') + v.toFixed(d);
+}
+
+function compute() {
+    const t     = parseFloat(document.getElementById('t').value);
+    const rh    = parseFloat(document.getElementById('rh').value);
+    const p_hpa = parseFloat(document.getElementById('p').value);
+    if ([t, rh, p_hpa].some(isNaN)) return;
+
+    const p   = p_hpa * 100.0;          // boundary conversion: hPa → Pa
+    const x   = mixing_ratio(t, rh, p);
+    const ah  = absolute_humidity(t, rh);
+    const hi  = heat_index(t, x, p);
+    const ddt = d_hi_d_t(t, x, p);
+    const ddx = d_hi_d_x(t, x, p);
+
+    const dx      = DX_DT * DELTA_T;   // Δx along isenthalpic path
+    const term_t  = ddt * DELTA_T;     // temperature contribution to ΔHI
+    const term_x  = ddx * dx;          // moisture contribution to ΔHI
+    const dhi     = term_t + term_x;
+
+    // ── ambient state ──
+    document.getElementById('x_gkg').textContent   = (x   * 1000).toFixed(2) + ' g/kg';
+    document.getElementById('abs_hum').textContent = (ah  * 1000).toFixed(2) + ' g/m³';
+    document.getElementById('hi').textContent      =  hi         .toFixed(2) + ' °C';
+
+    // ── partials ──
+    document.getElementById('dhi_dt').textContent  = ddt.toFixed(4) + ' °C/K';
+    document.getElementById('dhi_dx').textContent  = ddx.toFixed(1) + ' °C/(kg/kg)';
+
+    // ── formula breakdown ──
+    // Colour class tags are inline so white-space:pre renders them correctly.
+    const b = document.getElementById('breakdown');
+    b.innerHTML =
+        `<span class="label">dHI</span> = (∂HI/∂T)×ΔT          + (∂HI/∂x)×Δx\n` +
+        `     = ${ddt.toFixed(4)}×(${DELTA_T})      + ${ddx.toFixed(1)}×${dx.toFixed(6)}\n` +
+        `       <span class="term-cool">${sp(term_t,4)} °C  (cooling)</span>   <span class="term-moist">${sp(term_x,4)} °C  (moisture)\n` +
+        `</span>     = <span class="total">${sp(dhi,4)} °C</span>`;
+
+    // ── verdict ──
+    const v = document.getElementById('verdict');
+    if (dhi < THRESHOLD) {
+        v.className = 'verdict yes';
+        v.innerHTML =
+            'Evaporative cooling is beneficial' +
+            `<div class="sub">dHI = ${dhi.toFixed(4)} °C &lt; ${THRESHOLD} — heat index falls with cooling</div>`;
+    } else {
+        v.className = 'verdict no';
+        v.innerHTML =
+            'Evaporative cooling does not help' +
+            `<div class="sub">dHI = ${dhi.toFixed(4)} °C ≥ ${THRESHOLD} — added humidity outweighs the cooling</div>`;
+    }
+}
+
+['t', 'rh', 'p'].forEach(id =>
+    document.getElementById(id).addEventListener('input', compute)
+);
+compute();
+</script>
+</body>
+</html>
