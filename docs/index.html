@@ -168,13 +168,10 @@
 
     /* ── inputs ───────────────────────────────────────────────────────────── */
     .inputs {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
       padding-top: 4px;
-    }
-    @media (max-width: 460px) {
-      .inputs { grid-template-columns: 1fr; }
     }
 
     .input-group { display: flex; flex-direction: column; gap: 4px; }
@@ -184,6 +181,74 @@
       font-weight: 500;
       color: var(--text-secondary);
     }
+
+    /* ── HA-style sliders ─────────────────────────────────────────────────── */
+    .slider-group { display: flex; flex-direction: column; gap: 6px; }
+    .slider-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+    }
+    .slider-label {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-secondary);
+    }
+    .slider-value {
+      font-size: 14px;
+      font-family: var(--mono);
+      font-weight: 500;
+      color: var(--text-primary);
+      min-width: 5ch;
+      text-align: right;
+    }
+
+    input[type=range] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 4px;
+      border-radius: 2px;
+      background: linear-gradient(
+        to right,
+        var(--ha-p40) 0%,
+        var(--ha-p40) var(--pct, 50%),
+        var(--border-normal) var(--pct, 50%),
+        var(--border-normal) 100%
+      );
+      outline: none;
+      cursor: pointer;
+      margin: 10px 0 4px;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: var(--surface);
+      border: 2px solid var(--ha-p40);
+      box-shadow: var(--shadow-s);
+      cursor: pointer;
+      transition: transform 150ms, box-shadow 150ms;
+    }
+    input[type=range]::-webkit-slider-thumb:hover {
+      transform: scale(1.15);
+      box-shadow: 0 0 0 8px rgba(0,154,199,0.12);
+    }
+    input[type=range]:focus::-webkit-slider-thumb {
+      box-shadow: 0 0 0 5px rgba(0,154,199,0.22);
+    }
+    input[type=range]::-moz-range-thumb {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      border: 2px solid var(--ha-p40);
+      background: var(--surface);
+      box-shadow: var(--shadow-s);
+      cursor: pointer;
+      transition: transform 150ms;
+    }
+    input[type=range]::-moz-range-thumb:hover { transform: scale(1.15); }
 
     input[type=number] {
       width: 100%;
@@ -211,6 +276,23 @@
     @media (prefers-color-scheme: dark) {
       input[type=number]:focus {
         box-shadow: 0 0 0 2px rgba(55, 200, 253, 0.25);
+      }
+      input[type=range] {
+        background: linear-gradient(
+          to right,
+          var(--ha-p60) 0%,
+          var(--ha-p60) var(--pct, 50%),
+          var(--border-normal) var(--pct, 50%),
+          var(--border-normal) 100%
+        );
+      }
+      input[type=range]::-webkit-slider-thumb { border-color: var(--ha-p60); }
+      input[type=range]::-moz-range-thumb     { border-color: var(--ha-p60); }
+      input[type=range]::-webkit-slider-thumb:hover {
+        box-shadow: 0 0 0 8px rgba(55,200,253,0.12);
+      }
+      input[type=range]:focus::-webkit-slider-thumb {
+        box-shadow: 0 0 0 5px rgba(55,200,253,0.22);
       }
     }
 
@@ -309,13 +391,19 @@
     <div class="card-header">Conditions</div>
     <div class="card-body">
       <div class="inputs">
-        <div class="input-group">
-          <label for="t">Temperature (°C)</label>
-          <input type="number" id="t" value="30" step="0.1">
+        <div class="slider-group">
+          <div class="slider-header">
+            <span class="slider-label">Temperature</span>
+            <span class="slider-value" id="t-val">30.0 °C</span>
+          </div>
+          <input type="range" id="t" min="20" max="40" step="0.5" value="30">
         </div>
-        <div class="input-group">
-          <label for="rh">Rel. humidity (%)</label>
-          <input type="number" id="rh" value="45" step="1" min="0" max="100">
+        <div class="slider-group">
+          <div class="slider-header">
+            <span class="slider-label">Rel. humidity</span>
+            <span class="slider-value" id="rh-val">45 %</span>
+          </div>
+          <input type="range" id="rh" min="0" max="100" step="1" value="45">
         </div>
         <div class="input-group">
           <label for="p">Pressure (hPa)</label>
@@ -437,9 +525,21 @@ function compute() {
     }
 }
 
-['t', 'rh', 'p'].forEach(id =>
-    document.getElementById(id).addEventListener('input', compute)
-);
+function syncSlider(id, displayId, decimals, unit, min, max) {
+    const el   = document.getElementById(id);
+    const disp = document.getElementById(displayId);
+    function refresh() {
+        const v = parseFloat(el.value);
+        el.style.setProperty('--pct', ((v - min) / (max - min) * 100) + '%');
+        disp.textContent = v.toFixed(decimals) + ' ' + unit;
+    }
+    el.addEventListener('input', () => { refresh(); compute(); });
+    refresh();
+}
+
+syncSlider('t',  't-val',  1, '°C', 20, 40);
+syncSlider('rh', 'rh-val', 0, '%',   0, 100);
+document.getElementById('p').addEventListener('input', compute);
 compute();
 </script>
 </body>
