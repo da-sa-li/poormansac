@@ -567,6 +567,7 @@ function drawChart(t_s, x_s, p_pa, dhi) {
             const col = pts[i][2];
             let j = i + 1;
             while (j < pts.length - 1 && pts[j][2] === col) j++;
+            ctx.setLineDash(col === C.path_yes ? [] : [5, 4]);
             ctx.beginPath();
             ctx.strokeStyle = col;
             ctx.moveTo(pts[i][0], pts[i][1]);
@@ -574,6 +575,7 @@ function drawChart(t_s, x_s, p_pa, dhi) {
             ctx.stroke();
             i = j;
         }
+        ctx.setLineDash([]);
 
         // arrowhead colored by last segment
         const lastCol = pts[pts.length - 2][2];
