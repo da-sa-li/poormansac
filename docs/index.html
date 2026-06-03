@@ -456,7 +456,7 @@ function compute() {
 }
 
 // ── Psychrometric chart ───────────────────────────────────────────────────
-const CHART = { T_MIN: 10, T_MAX: 50, X_MAX: 30 };  // °C, g/kg
+const CHART = { T_MIN: 10, T_MAX: 50 };  // °C
 
 function chartColors() {
     const dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -494,8 +494,11 @@ function drawChart(t_s, x_s, p_pa, dhi) {
     const CW = W - PAD.l - PAD.r;
     const CH = H - PAD.t - PAD.b;
 
+    // Y-axis range: minimum 30 g/kg, extended if the state point needs more headroom
+    const X_MAX = Math.max(30, Math.ceil(x_s * 1250 / 5) * 5);
+
     const toX  = t  => PAD.l + (t - CHART.T_MIN) / (CHART.T_MAX - CHART.T_MIN) * CW;
-    const toY  = xg => PAD.t + CH * (1 - xg / CHART.X_MAX);
+    const toY  = xg => PAD.t + CH * (1 - xg / X_MAX);
 
     // background
     ctx.fillStyle = C.bg;
@@ -507,7 +510,7 @@ function drawChart(t_s, x_s, p_pa, dhi) {
     for (let t = 15; t < CHART.T_MAX; t += 5) {
         ctx.beginPath(); ctx.moveTo(toX(t), PAD.t); ctx.lineTo(toX(t), PAD.t + CH); ctx.stroke();
     }
-    for (let xg = 5; xg < CHART.X_MAX; xg += 5) {
+    for (let xg = 5; xg < X_MAX; xg += 5) {
         ctx.beginPath(); ctx.moveTo(PAD.l, toY(xg)); ctx.lineTo(PAD.l + CW, toY(xg)); ctx.stroke();
     }
 
@@ -520,7 +523,7 @@ function drawChart(t_s, x_s, p_pa, dhi) {
         let first = true, lastT = null, lastXg = null;
         for (let t = CHART.T_MIN; t <= CHART.T_MAX + 0.01; t += 0.25) {
             const xg = mixing_ratio(t, rh, p_pa) * 1000;
-            if (xg > CHART.X_MAX) break;
+            if (xg > X_MAX) break;
             const cx = toX(t), cy = toY(xg);
             if (first) { ctx.moveTo(cx, cy); first = false; }
             else        ctx.lineTo(cx, cy);
@@ -550,7 +553,7 @@ function drawChart(t_s, x_s, p_pa, dhi) {
     for (let dt = 0; dt >= -12; dt -= 0.3) {
         const tp = t_s + dt;
         const xp = (x_s + DX_DT * dt) * 1000;  // g/kg
-        if (tp < CHART.T_MIN || xp < 0 || xp > CHART.X_MAX) break;
+        if (tp < CHART.T_MIN || xp < 0 || xp > X_MAX) break;
         pts.push([toX(tp), toY(xp)]);
     }
     if (pts.length >= 2) {
@@ -604,7 +607,7 @@ function drawChart(t_s, x_s, p_pa, dhi) {
         ctx.fillText(t + '°', cx, PAD.t + CH + 15);
     }
     ctx.textAlign = 'right';
-    for (let xg = 0; xg <= CHART.X_MAX; xg += 5) {
+    for (let xg = 0; xg <= X_MAX; xg += 5) {
         const cy = toY(xg);
         ctx.beginPath(); ctx.moveTo(PAD.l, cy); ctx.lineTo(PAD.l - 4, cy); ctx.stroke();
         ctx.fillText(xg, PAD.l - 7, cy + 4);
@@ -626,8 +629,9 @@ function drawChart(t_s, x_s, p_pa, dhi) {
     document.getElementById(id).addEventListener('input', compute)
 );
 
-// Redraw chart when container width changes (e.g. window resize)
+// Redraw chart on container resize or system dark/light mode change
 new ResizeObserver(() => compute()).observe(document.getElementById('chart'));
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => compute());
 
 compute();
 </script>
