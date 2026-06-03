@@ -5,191 +5,352 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Poor Man's AC</title>
   <style>
+    /* ── HA Design Tokens (light) ─────────────────────────────────────────── */
     :root {
-      --bg:        #f5f6f8;
-      --card:      #ffffff;
-      --border:    #dde1e7;
-      --text:      #1a1d23;
-      --muted:     #6b7280;
-      --green:     #166534;
-      --green-bg:  #dcfce7;
-      --green-br:  #86efac;
-      --red:       #991b1b;
-      --red-bg:    #fee2e2;
-      --red-br:    #fca5a5;
-      --mono:      'Courier New', Courier, monospace;
+      /* primary (HA sky-blue) */
+      --ha-p40: #009ac7;
+      --ha-p50: #18bcf2;
+      --ha-p60: #37c8fd;
+      --ha-p90: #dff3fc;
+      --ha-p95: #eff9fe;
+
+      /* neutral */
+      --ha-n05: #141414;
+      --ha-n10: #202020;
+      --ha-n20: #363636;
+      --ha-n30: #4a4a4a;
+      --ha-n40: #5e5e5e;
+      --ha-n50: #7a7a7a;
+      --ha-n60: #989898;
+      --ha-n70: #b1b1b1;
+      --ha-n80: #cccccc;
+      --ha-n90: #e6e6e6;
+      --ha-n95: #f3f3f3;
+
+      /* green (success) */
+      --ha-g20: #0a3a1d;
+      --ha-g30: #0a5027;
+      --ha-g40: #036730;
+      --ha-g70: #5dc36f;
+      --ha-g90: #c2f2c1;
+      --ha-g95: #e3f9e3;
+
+      /* red (danger) */
+      --ha-r10: #3e0913;
+      --ha-r20: #631323;
+      --ha-r40: #b30532;
+      --ha-r70: #fd8f90;
+      --ha-r90: #ffdedc;
+      --ha-r95: #fff0ef;
+
+      /* semantic tokens */
+      --surface:          #ffffff;
+      --surface-low:      var(--ha-n95);
+      --text-primary:     var(--ha-n05);
+      --text-secondary:   var(--ha-n40);
+      --text-disabled:    var(--ha-n60);
+      --border-quiet:     var(--ha-n90);
+      --border-normal:    var(--ha-n80);
+      --form-bg:          var(--ha-n95);
+      --form-bg-hover:    var(--ha-n90);
+      --link:             var(--ha-p40);
+
+      /* verdict (light) */
+      --verdict-yes-bg:   var(--ha-g95);
+      --verdict-yes-fg:   var(--ha-g40);
+      --verdict-yes-br:   var(--ha-g90);
+      --verdict-no-bg:    var(--ha-r95);
+      --verdict-no-fg:    var(--ha-r40);
+      --verdict-no-br:    var(--ha-r90);
+
+      /* breakdown accent (light) */
+      --term-cool:        var(--ha-g40);
+      --term-moist:       var(--ha-r40);
+
+      /* structure */
+      --radius-md:        8px;
+      --radius-lg:        12px;
+      --shadow-s:         0 1px 2px 0 rgba(0,0,0,.08), 0 1px 3px 0 rgba(0,0,0,.12);
+      --font:             Roboto, "Noto Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+      --mono:             monospace;
     }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --surface:          var(--ha-n10);
+        --surface-low:      var(--ha-n05);
+        --text-primary:     #ffffff;
+        --text-secondary:   var(--ha-n80);
+        --text-disabled:    var(--ha-n60);
+        --border-quiet:     var(--ha-n20);
+        --border-normal:    var(--ha-n30);
+        --form-bg:          var(--ha-n20);
+        --form-bg-hover:    var(--ha-n30);
+        --link:             var(--ha-p60);
+
+        --verdict-yes-bg:   var(--ha-g20);
+        --verdict-yes-fg:   var(--ha-g70);
+        --verdict-yes-br:   var(--ha-g30);
+        --verdict-no-bg:    var(--ha-r10);
+        --verdict-no-fg:    var(--ha-r70);
+        --verdict-no-br:    var(--ha-r20);
+
+        --term-cool:        var(--ha-g70);
+        --term-moist:       var(--ha-r70);
+
+        --shadow-s:         0 1px 2px 0 rgba(0,0,0,.4), 0 1px 3px 0 rgba(0,0,0,.5);
+      }
+    }
+
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
     body {
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      padding: 2rem 1.25rem 3rem;
-      max-width: 620px;
-      margin: 0 auto;
-      line-height: 1.5;
+      font-family: var(--font);
+      background: var(--surface-low);
+      color: var(--text-primary);
+      min-height: 100vh;
+      font-size: 14px;
+      font-weight: 400;
+      line-height: 1.6;
     }
 
-    /* ── header ── */
-    h1 { font-size: 1.35rem; font-weight: 700; }
-    .subtitle {
-      color: var(--muted);
-      font-size: 0.875rem;
-      margin-top: 0.2rem;
-      margin-bottom: 1.75rem;
-    }
-
-    /* ── inputs ── */
-    .inputs {
+    /* ── HA-style header bar ──────────────────────────────────────────────── */
+    .ha-header {
+      background: var(--surface);
+      box-shadow: var(--shadow-s);
+      height: 56px;
       display: flex;
-      gap: 0.75rem;
-      flex-wrap: wrap;
-      margin-bottom: 1.25rem;
+      align-items: center;
+      padding: 0 16px;
+      gap: 12px;
     }
-    .input-group { flex: 1; min-width: 140px; }
-    label {
-      display: block;
-      font-size: 0.75rem;
-      font-weight: 600;
-      letter-spacing: 0.04em;
+    .ha-logo { color: var(--ha-p50); flex-shrink: 0; }
+    .ha-header-title {
+      font-size: 20px;
+      font-weight: 500;
+      color: var(--text-primary);
+      line-height: 1.2;
+    }
+
+    /* ── page layout ──────────────────────────────────────────────────────── */
+    .content {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px 16px 40px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .subtitle {
+      font-size: 14px;
+      color: var(--text-secondary);
+      line-height: 1.6;
+      padding: 0 2px;
+    }
+
+    /* ── card ─────────────────────────────────────────────────────────────── */
+    .card {
+      background: var(--surface);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-s);
+      overflow: hidden;
+    }
+    .card-header {
+      padding: 16px 16px 4px;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.08em;
       text-transform: uppercase;
-      color: var(--muted);
-      margin-bottom: 0.3rem;
+      color: var(--text-secondary);
     }
+    .card-body { padding: 8px 16px 16px; }
+
+    /* ── inputs ───────────────────────────────────────────────────────────── */
+    .inputs {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      padding-top: 4px;
+    }
+    @media (max-width: 460px) {
+      .inputs { grid-template-columns: 1fr; }
+    }
+
+    .input-group { display: flex; flex-direction: column; gap: 4px; }
+
+    label {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-secondary);
+    }
+
     input[type=number] {
       width: 100%;
-      padding: 0.45rem 0.7rem;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      font-size: 0.95rem;
+      padding: 9px 12px;
+      border: 1px solid var(--border-quiet);
+      border-radius: var(--radius-md);
+      font-size: 14px;
       font-family: var(--mono);
-      background: var(--card);
-      color: var(--text);
+      background: var(--form-bg);
+      color: var(--text-primary);
       -moz-appearance: textfield;
+      transition: border-color 150ms, background 150ms, box-shadow 150ms;
     }
     input[type=number]::-webkit-inner-spin-button,
     input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
+    input[type=number]:hover {
+      border-color: var(--border-normal);
+      background: var(--form-bg-hover);
+    }
     input[type=number]:focus {
       outline: none;
-      border-color: #6366f1;
-      box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
+      border-color: var(--ha-p40);
+      box-shadow: 0 0 0 2px rgba(0, 154, 199, 0.2);
+    }
+    @media (prefers-color-scheme: dark) {
+      input[type=number]:focus {
+        box-shadow: 0 0 0 2px rgba(55, 200, 253, 0.25);
+      }
     }
 
-    /* ── verdict ── */
+    /* ── verdict ──────────────────────────────────────────────────────────── */
     .verdict {
-      border-radius: 8px;
+      border-radius: var(--radius-lg);
       border: 1px solid transparent;
-      padding: 0.85rem 1rem;
-      margin-bottom: 1rem;
-      font-weight: 600;
-      font-size: 1rem;
+      padding: 14px 16px;
+      font-size: 15px;
+      font-weight: 500;
+      line-height: 1.3;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
     }
-    .verdict.yes  { background: var(--green-bg); border-color: var(--green-br); color: var(--green); }
-    .verdict.no   { background: var(--red-bg);   border-color: var(--red-br);   color: var(--red);   }
+    .verdict.yes {
+      background: var(--verdict-yes-bg);
+      border-color: var(--verdict-yes-br);
+      color: var(--verdict-yes-fg);
+    }
+    .verdict.no {
+      background: var(--verdict-no-bg);
+      border-color: var(--verdict-no-br);
+      color: var(--verdict-no-fg);
+    }
     .verdict .sub {
+      font-size: 12px;
       font-weight: 400;
-      font-size: 0.82rem;
-      margin-top: 0.25rem;
       font-family: var(--mono);
       opacity: 0.85;
     }
 
-    /* ── cards ── */
-    .card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 1rem 1.1rem;
-      margin-bottom: 0.75rem;
-    }
-    .card-title {
-      font-size: 0.7rem;
-      font-weight: 700;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      color: var(--muted);
-      margin-bottom: 0.65rem;
-    }
+    /* ── data rows ────────────────────────────────────────────────────────── */
     .row {
       display: flex;
       justify-content: space-between;
       align-items: baseline;
-      padding: 0.18rem 0;
-      font-size: 0.875rem;
-      border-bottom: 1px solid #f1f3f5;
+      padding: 9px 0;
+      font-size: 14px;
+      border-bottom: 1px solid var(--border-quiet);
     }
     .row:last-child { border-bottom: none; }
-    .row .lbl { color: var(--muted); }
-    .row .val { font-family: var(--mono); font-size: 0.875rem; }
+    .row .lbl { color: var(--text-secondary); }
+    .row .val  { font-family: var(--mono); font-size: 14px; }
 
-    /* ── formula breakdown ── */
+    /* ── formula breakdown ────────────────────────────────────────────────── */
     .breakdown {
-      background: #f8f9fc;
-      border-radius: 6px;
-      padding: 0.75rem 0.9rem;
-      margin-top: 0.65rem;
+      background: var(--surface-low);
+      border-radius: var(--radius-md);
+      padding: 12px 14px;
+      margin-top: 8px;
       font-family: var(--mono);
-      font-size: 0.8rem;
+      font-size: 12px;
       line-height: 2;
       white-space: pre;
+      overflow-x: auto;
+      color: var(--text-primary);
     }
-    .breakdown .label { color: var(--muted); }
-    .breakdown .total { font-weight: 700; }
-    .breakdown .term-cool { color: #166534; }
-    .breakdown .term-moist { color: #9a3412; }
+    .breakdown .label      { color: var(--text-secondary); }
+    .breakdown .total      { font-weight: 700; }
+    .breakdown .term-cool  { color: var(--term-cool); }
+    .breakdown .term-moist { color: var(--term-moist); }
 
-    /* ── footer ── */
+    /* ── footer ───────────────────────────────────────────────────────────── */
     footer {
-      margin-top: 1.5rem;
-      font-size: 0.75rem;
-      color: var(--muted);
+      font-size: 12px;
+      color: var(--text-disabled);
+      text-align: center;
+      padding: 8px 0 0;
     }
-    footer a { color: var(--muted); text-underline-offset: 2px; }
+    footer a {
+      color: var(--link);
+      text-decoration: none;
+      text-underline-offset: 2px;
+    }
+    footer a:hover { text-decoration: underline; }
   </style>
 </head>
 <body>
 
-<h1>Poor Man's AC</h1>
-<p class="subtitle">
-  Does direct evaporative (adiabatic) cooling improve comfort?<br>
-  Enter outdoor conditions; the result matches the Home Assistant integration exactly.
-</p>
+<header class="ha-header">
+  <svg class="ha-logo" xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" aria-hidden="true">
+    <path fill="currentColor" d="M12 3 2 12h3v9h6v-5h2v5h6v-9h3L12 3z"/>
+  </svg>
+  <h1 class="ha-header-title">Poor Man's AC</h1>
+</header>
 
-<div class="inputs">
-  <div class="input-group">
-    <label for="t">Temperature (°C)</label>
-    <input type="number" id="t" value="30" step="0.1">
+<main class="content">
+
+  <p class="subtitle">
+    Does direct evaporative (adiabatic) cooling improve comfort?
+    Enter outdoor conditions; the result matches the Home Assistant integration exactly.
+  </p>
+
+  <div class="card">
+    <div class="card-header">Conditions</div>
+    <div class="card-body">
+      <div class="inputs">
+        <div class="input-group">
+          <label for="t">Temperature (°C)</label>
+          <input type="number" id="t" value="30" step="0.1">
+        </div>
+        <div class="input-group">
+          <label for="rh">Rel. humidity (%)</label>
+          <input type="number" id="rh" value="45" step="1" min="0" max="100">
+        </div>
+        <div class="input-group">
+          <label for="p">Pressure (hPa)</label>
+          <input type="number" id="p" value="1013.25" step="0.25">
+        </div>
+      </div>
+    </div>
   </div>
-  <div class="input-group">
-    <label for="rh">Rel. humidity (%)</label>
-    <input type="number" id="rh" value="45" step="1" min="0" max="100">
+
+  <div id="verdict" class="verdict"></div>
+
+  <div class="card">
+    <div class="card-header">Ambient state</div>
+    <div class="card-body">
+      <div class="row"><span class="lbl">Mixing ratio x</span>    <span class="val" id="x_gkg">—</span></div>
+      <div class="row"><span class="lbl">Absolute humidity</span> <span class="val" id="abs_hum">—</span></div>
+      <div class="row"><span class="lbl">Heat index HI</span>     <span class="val" id="hi">—</span></div>
+    </div>
   </div>
-  <div class="input-group">
-    <label for="p">Pressure (hPa)</label>
-    <input type="number" id="p" value="1013.25" step="0.25">
+
+  <div class="card">
+    <div class="card-header">Cooling differential — ΔHI per −1 K of evaporative cooling</div>
+    <div class="card-body">
+      <div class="row"><span class="lbl">∂HI/∂T</span> <span class="val" id="dhi_dt">—</span></div>
+      <div class="row"><span class="lbl">∂HI/∂x</span> <span class="val" id="dhi_dx">—</span></div>
+      <div class="breakdown" id="breakdown"></div>
+    </div>
   </div>
-</div>
 
-<div id="verdict" class="verdict"></div>
+  <footer>
+    <a href="https://github.com/da-sa-li/poormansac">da-sa-li/poormansac</a> ·
+    model constants: dx/dT = −0.00041 kg/(kg·K), threshold = 0
+  </footer>
 
-<div class="card">
-  <div class="card-title">Ambient state</div>
-  <div class="row"><span class="lbl">Mixing ratio x</span>       <span class="val" id="x_gkg">—</span></div>
-  <div class="row"><span class="lbl">Absolute humidity</span>    <span class="val" id="abs_hum">—</span></div>
-  <div class="row"><span class="lbl">Heat index HI</span>        <span class="val" id="hi">—</span></div>
-</div>
-
-<div class="card">
-  <div class="card-title">Cooling differential — ΔHI per −1 K of evaporative cooling</div>
-  <div class="row"><span class="lbl">∂HI/∂T</span>              <span class="val" id="dhi_dt">—</span></div>
-  <div class="row"><span class="lbl">∂HI/∂x</span>              <span class="val" id="dhi_dx">—</span></div>
-  <div class="breakdown" id="breakdown"></div>
-</div>
-
-<footer>
-  <a href="https://github.com/da-sa-li/poormansac">da-sa-li/poormansac</a> ·
-  model constants: dx/dT = −0.00041 kg/(kg·K), threshold = 0
-</footer>
+</main>
 
 <script src="calc.js"></script>
 <script>
