@@ -274,6 +274,13 @@
     .breakdown .term-cool  { color: var(--term-cool); }
     .breakdown .term-moist { color: var(--term-moist); }
 
+    /* ── psychrometric chart ─────────────────────────────────────────────── */
+    .chart-canvas {
+      width: 100%;
+      height: 260px;
+      display: block;
+    }
+
     /* ── footer ───────────────────────────────────────────────────────────── */
     footer {
       font-size: 12px;
@@ -328,6 +335,13 @@
   <div id="verdict" class="verdict"></div>
 
   <div class="card">
+    <div class="card-header">Psychrometric chart</div>
+    <div class="card-body" style="padding: 8px 12px 12px;">
+      <canvas id="chart" class="chart-canvas"></canvas>
+    </div>
+  </div>
+
+  <div class="card">
     <div class="card-header">Ambient state</div>
     <div class="card-body">
       <div class="row"><span class="lbl">Mixing ratio x</span>    <span class="val" id="x_gkg">—</span></div>
@@ -368,6 +382,7 @@ function setInvalidState(msg) {
     const v = document.getElementById('verdict');
     v.className = 'verdict no';
     v.innerHTML = `Invalid input<div class="sub">${msg}</div>`;
+    clearChart();
 }
 
 function compute() {
@@ -435,11 +450,189 @@ function compute() {
             'Evaporative cooling does not help' +
             `<div class="sub">dHI = ${dhi.toFixed(4)} °C ≥ ${THRESHOLD} — added humidity outweighs the cooling</div>`;
     }
+
+    // ── chart ──
+    drawChart(t, x, p, dhi);
+}
+
+// ── Psychrometric chart ───────────────────────────────────────────────────
+const CHART = { T_MIN: 10, T_MAX: 50 };  // °C
+
+function chartColors() {
+    const dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    return dark ? {
+        bg: '#202020', grid: '#363636', axis: '#989898',
+        rh: '#4a4a4a', sat: '#cccccc', rhlbl: '#7a7a7a',
+        dot: '#37c8fd', path_yes: '#5dc36f', path_no: '#fd8f90',
+    } : {
+        bg: '#ffffff', grid: '#e6e6e6', axis: '#5e5e5e',
+        rh: '#d4d4d4', sat: '#4a4a4a', rhlbl: '#989898',
+        dot: '#009ac7', path_yes: '#036730', path_no: '#b30532',
+    };
+}
+
+function clearChart() {
+    const canvas = document.getElementById('chart');
+    const ctx = canvas.getContext('2d');
+    const dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    ctx.fillStyle = dark ? '#202020' : '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+}
+
+function drawChart(t_s, x_s, p_pa, dhi) {
+    const canvas = document.getElementById('chart');
+    const C = chartColors();
+    const dpr = window.devicePixelRatio || 1;
+    const W = canvas.offsetWidth;
+    const H = canvas.offsetHeight;
+    canvas.width  = W * dpr;
+    canvas.height = H * dpr;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+
+    const PAD = { t: 8, r: 38, b: 32, l: 38 };
+    const CW = W - PAD.l - PAD.r;
+    const CH = H - PAD.t - PAD.b;
+
+    // Y-axis range: minimum 30 g/kg, extended if the state point needs more headroom
+    const X_MAX = Math.max(30, Math.ceil(x_s * 1250 / 5) * 5);
+
+    const toX  = t  => PAD.l + (t - CHART.T_MIN) / (CHART.T_MAX - CHART.T_MIN) * CW;
+    const toY  = xg => PAD.t + CH * (1 - xg / X_MAX);
+
+    // background
+    ctx.fillStyle = C.bg;
+    ctx.fillRect(0, 0, W, H);
+
+    // grid
+    ctx.strokeStyle = C.grid;
+    ctx.lineWidth = 0.5;
+    for (let t = 15; t < CHART.T_MAX; t += 5) {
+        ctx.beginPath(); ctx.moveTo(toX(t), PAD.t); ctx.lineTo(toX(t), PAD.t + CH); ctx.stroke();
+    }
+    for (let xg = 5; xg < X_MAX; xg += 5) {
+        ctx.beginPath(); ctx.moveTo(PAD.l, toY(xg)); ctx.lineTo(PAD.l + CW, toY(xg)); ctx.stroke();
+    }
+
+    // RH isolines — draw all 10, label every other
+    for (const rh of [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]) {
+        const isSat = rh === 100;
+        ctx.beginPath();
+        ctx.strokeStyle = isSat ? C.sat : C.rh;
+        ctx.lineWidth   = isSat ? 1.5 : 0.75;
+        let first = true, lastT = null, lastXg = null;
+        for (let t = CHART.T_MIN; t <= CHART.T_MAX + 0.01; t += 0.25) {
+            const xg = mixing_ratio(t, rh, p_pa) * 1000;
+            if (xg > X_MAX) break;
+            const cx = toX(t), cy = toY(xg);
+            if (first) { ctx.moveTo(cx, cy); first = false; }
+            else        ctx.lineTo(cx, cy);
+            lastT = t; lastXg = xg;
+        }
+        ctx.stroke();
+
+        // label 20 / 40 / 60 / 80 / 100 at rightmost visible point
+        if (rh % 20 === 0 && lastT !== null) {
+            const lx = toX(lastT), ly = toY(lastXg);
+            const label = isSat ? 'sat' : rh + '%';
+            ctx.fillStyle = isSat ? C.sat : C.rhlbl;
+            ctx.font = '10px sans-serif';
+            if (lx > PAD.l + CW - 22) {
+                ctx.textAlign = 'left';
+                ctx.fillText(label, lx + 3, ly + 3);
+            } else {
+                ctx.textAlign = 'center';
+                ctx.fillText(label, lx, ly - 5);
+            }
+        }
+    }
+
+    // isenthalpic cooling path (12 K, same slope as DX_DT)
+    const pathCol = dhi < THRESHOLD ? C.path_yes : C.path_no;
+    const pts = [];
+    for (let dt = 0; dt >= -12; dt -= 0.3) {
+        const tp = t_s + dt;
+        const xp = (x_s + DX_DT * dt) * 1000;  // g/kg
+        if (tp < CHART.T_MIN || xp < 0 || xp > X_MAX) break;
+        pts.push([toX(tp), toY(xp)]);
+    }
+    if (pts.length >= 2) {
+        ctx.beginPath();
+        ctx.strokeStyle = pathCol;
+        ctx.lineWidth = 2;
+        ctx.moveTo(pts[0][0], pts[0][1]);
+        for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+        ctx.stroke();
+
+        // arrowhead
+        const [ax, ay] = pts[pts.length - 1];
+        const [px, py] = pts[pts.length - 2];
+        const angle = Math.atan2(ay - py, ax - px);
+        const S = 7;
+        ctx.beginPath();
+        ctx.fillStyle = pathCol;
+        ctx.moveTo(ax, ay);
+        ctx.lineTo(ax - S * Math.cos(angle - Math.PI/6), ay - S * Math.sin(angle - Math.PI/6));
+        ctx.lineTo(ax - S * Math.cos(angle + Math.PI/6), ay - S * Math.sin(angle + Math.PI/6));
+        ctx.closePath();
+        ctx.fill();
+    }
+
+    // state point
+    const sx = toX(t_s), sy = toY(x_s * 1000);
+    ctx.beginPath();
+    ctx.arc(sx, sy, 5, 0, 2 * Math.PI);
+    ctx.fillStyle = C.dot;
+    ctx.fill();
+    ctx.strokeStyle = C.bg;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // axes border
+    ctx.strokeStyle = C.axis;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(PAD.l, PAD.t);
+    ctx.lineTo(PAD.l, PAD.t + CH);
+    ctx.lineTo(PAD.l + CW, PAD.t + CH);
+    ctx.stroke();
+
+    // tick labels
+    ctx.fillStyle = C.axis;
+    ctx.font = '11px monospace';
+    ctx.textAlign = 'center';
+    for (let t = CHART.T_MIN; t <= CHART.T_MAX; t += 10) {
+        const cx = toX(t);
+        ctx.beginPath(); ctx.moveTo(cx, PAD.t + CH); ctx.lineTo(cx, PAD.t + CH + 4); ctx.stroke();
+        ctx.fillText(t + '°', cx, PAD.t + CH + 15);
+    }
+    ctx.textAlign = 'right';
+    for (let xg = 0; xg <= X_MAX; xg += 5) {
+        const cy = toY(xg);
+        ctx.beginPath(); ctx.moveTo(PAD.l, cy); ctx.lineTo(PAD.l - 4, cy); ctx.stroke();
+        ctx.fillText(xg, PAD.l - 7, cy + 4);
+    }
+
+    // axis titles
+    ctx.fillStyle = C.axis;
+    ctx.font = '11px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('T (°C)', PAD.l + CW / 2, H - 2);
+    ctx.save();
+    ctx.translate(9, PAD.t + CH / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillText('x (g/kg)', 0, 0);
+    ctx.restore();
 }
 
 ['t', 'rh', 'p'].forEach(id =>
     document.getElementById(id).addEventListener('input', compute)
 );
+
+// Redraw chart on container resize or system dark/light mode change
+new ResizeObserver(() => compute()).observe(document.getElementById('chart'));
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => compute());
+
 compute();
 </script>
 </body>
