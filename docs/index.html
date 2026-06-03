@@ -277,13 +277,39 @@ function sp(v, d) {
     return (v >= 0 ? '+' : '') + v.toFixed(d);
 }
 
+function setInvalidState(msg) {
+    ['x_gkg', 'abs_hum', 'hi', 'dhi_dt', 'dhi_dx'].forEach(id => {
+        document.getElementById(id).textContent = '—';
+    });
+    document.getElementById('breakdown').textContent = '';
+    const v = document.getElementById('verdict');
+    v.className = 'verdict no';
+    v.innerHTML = `Invalid input<div class="sub">${msg}</div>`;
+}
+
 function compute() {
     const t     = parseFloat(document.getElementById('t').value);
     const rh    = parseFloat(document.getElementById('rh').value);
     const p_hpa = parseFloat(document.getElementById('p').value);
-    if ([t, rh, p_hpa].some(isNaN)) return;
+    if (![t, rh, p_hpa].every(Number.isFinite)) {
+        setInvalidState('Fill in all three fields with numbers.');
+        return;
+    }
+    if (rh < 0 || rh > 100) {
+        setInvalidState('Relative humidity must be between 0 and 100 %.');
+        return;
+    }
+    if (p_hpa <= 0) {
+        setInvalidState('Pressure must be greater than 0 hPa.');
+        return;
+    }
 
     const p   = p_hpa * 100.0;          // boundary conversion: hPa → Pa
+    const vp  = saturation_vapour_pressure(t) * rh / 100.0;
+    if (vp >= p) {
+        setInvalidState('Vapour pressure exceeds ambient pressure — unphysical combination.');
+        return;
+    }
     const x   = mixing_ratio(t, rh, p);
     const ah  = absolute_humidity(t, rh);
     const hi  = heat_index(t, x, p);
