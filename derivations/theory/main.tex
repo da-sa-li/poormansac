@@ -1,0 +1,108 @@
+\documentclass{article}
+\usepackage{graphicx} % Required for inserting images
+\usepackage{xspace}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[naustrian]{babel}
+\usepackage{amsmath}
+
+\title{Zur Vorteilhaftigkeit direkter adiabater Kühlung in Wohnräumen}
+\author{Daniel Salamonsberger, Thomas Rössel}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\section{Einleitung}
+
+Der Hitzeindex $HI$ ist eine Zustandsgröße und kann wie folgt beschrieben werden:
+
+\begin{equation}
+    HI = c_1 + c_2 T + c_3 \varphi + c_4 T \varphi + c_5 T^2 + c_6 \varphi^2 + c_7 T^2\varphi + c_8 T \varphi^2 + c_9 T^2 \varphi^2
+    \label{eq:hitzeindex}
+\end{equation}
+
+mit der Umgebungstemperatur $T$ in Grad Celsius und der relativen Luftfeuchtigkeit $\varphi$ in Prozent.
+Die Intention des Hitzeindex ist ein Maß, welches das menschliche Wärmeempfinden besser darstellt als die Trockenkugeltemperatur.
+
+\subsection{Luftfeuchtigkeit}
+Die relative Luftfeuchtigkeit beträgt
+\begin{equation}
+    \varphi = \frac{\rho_w}{\rho_{w, max}}
+    \label{eq:relfeuchte}
+\end{equation}
+
+Der Zusammenhang zwischen der Sättigungsmenge $\rho_{w, max}$ in g\,m$^{-3}$ und der Temperatur in Grad Celsius $T$ lässt sich durch folgende Gleichung beschreiben:
+\begin{equation}
+    \rho_{w, max} = 6,0495 \cdot e^{0,0533 \cdot T}
+    \label{eq:sättigung}
+\end{equation}
+
+Zurück eingesetzt in Gleichung \ref{eq:relfeuchte}:
+\begin{equation}
+    \varphi = \frac{\rho_w}{6,0495 \cdot e^{0,0533 \cdot T}} = 0,16530 \cdot \rho_w \cdot e^{-0,0533 \cdot T}
+\end{equation}
+
+Und zurück eingesetzt in Gleichung \ref{eq:hitzeindex}:
+\begin{multline}
+    HI = -8,784695 + 1,61139411 \cdot T + 0,3865 \cdot \rho_w \cdot e^{-0,0533 \cdot T} - \\ - 0,024153 \cdot T \cdot \rho_w \cdot e^{-0,0533 \cdot T} - 0,01231 \cdot T^2 - 0,002715 \cdot \rho_w \cdot e^{-0,1066 \cdot T} + \\ + 0,0003656 \cdot T^2 \cdot \rho_w \cdot e^{-0,0533 \cdot T} + 0,0001199 \cdot T \cdot \rho_w \cdot e^{-0,1066 \cdot T} - \\ - 5,921 \cdot 10^{-7} \cdot T^2 \cdot \rho_w \cdot e^{-0,1066 \cdot T}
+\end{multline}
+
+Leiten wir den Hitzeindex einfach mal zur Gaudi nach der Temperatur ab:
+\begin{multline}
+    \frac{\partial HI}{\partial T} = 6.311786 \cdot 10^{-8}\, \rho_w\, e^{-0.1066\, T}\, T^2 - \\ - 1.94865 \cdot 10^{-5}\, \rho_w\, e^{-0.0533\, T}\, T^2 - 1.39655 \cdot 10^{-5}\, \rho_w\, e^{-0.1066\, T}\, T + \\  + 0.00201855\, \rho_w\, e^{-0.0533\, T}\, T + 0.000409319\, \rho_w\, e^{-0.1066\, T} - \\ - 0.0447535\, \rho_w\, e^{-0.0533\, T} - 0.02462\, T + 1.61139
+\end{multline}
+
+Mir war das diese Schreibübung händisch zu blöd, darum an dieser Stelle Dank an meinen Coautor!
+
+Und weil es so lustig war, das Ganze nochmal mit der Luftfeuchte:
+\begin{multline}
+    \frac{\partial HI}{\partial \rho_w} = -5.921 \cdot 10^{-7}\, e^{-0.1066\, T}\, T^2 + 0.0003656\, e^{-0.0533\, T}\, T^2 + \\ + 0.0001199\, e^{-0.1066\, T}\, T - 0.024153\, e^{-0.0533\, T}\, T - \\ - 0.002715\, e^{-0.1066\, T} + 0.3865\, e^{-0.0533\, T}
+\end{multline}
+
+Wer hätte gedacht, was jetzt kommt?
+\begin{equation}
+    \mathrm{d} HI = \left( \frac{\partial HI}{\partial T} \right)_{\rho_w} \mathrm d T + \left( \frac{\partial HI}{\partial \rho_w} \right)_T \mathrm d \rho_w
+\end{equation}
+
+\subsection{Thermodynamik}
+Die Verdampfungsenthalpie von Wasser beträgt
+\begin{equation}
+    \Delta h_v = 2441 \, \mathrm{kJ} \cdot \mathrm{kg}^{-1}
+\end{equation}
+während die Wärmekapazität von Wasser eh niemanden interessiert.
+
+Die Wärmekapazität von Luft beträgt etwa
+\begin{equation}
+    c_p = 1,01 \, \mathrm{kJ} \cdot \mathrm{kg}^{-1} \cdot \mathrm{K}^{-1}
+\end{equation}
+
+Der erste Hauptsatz der Thermodynamik lautet für unser System:
+\begin{eqnarray}
+    \mathrm d h &=& \mathrm d q - p \cdot \mathrm d V \\
+    \mathrm d h &=& 0 \\
+    0 &=& c_p \mathrm d T + \Delta H_v \mathrm d x \\
+    \Delta H_v \mathrm d x &=& - c_p \mathrm d T \\
+    \frac{\mathrm d x}{\mathrm d T} &=& -\frac{c_p}{\Delta H_v} \\
+    \frac{\mathrm d x}{\mathrm d T} &=& -0,41 \, \mathrm K \cdot \mathrm{g}_w \cdot \mathrm{kg}_L^{-1}
+\end{eqnarray}
+
+mit der Luftdichte $\varrho_L = 1,2041 \,$ kg m$^{-3}$ (definitiv konstant und nicht abhängig von Temperatur oder Luftfeuchtigkeit) ergibt sich:
+\begin{equation}
+    \frac{\mathrm d \rho_w}{\mathrm d T} = -0,34 \, \mathrm K \cdot \mathrm{g}_w \cdot \mathrm{m}_L^{-3}
+\end{equation}
+
+\section{Differentialgleichung}
+\begin{eqnarray}
+    \mathrm{d} HI &=& \left( \frac{\partial HI}{\partial T} \right)_{\rho_w} \mathrm d T + \left( \frac{\partial HI}{\partial \rho_w} \right)_T \mathrm d \rho_w \\
+    \frac{\mathrm d HI}{\mathrm{d T}} &=& \left( \frac{\partial HI}{\partial T} \right) + \left( \frac{\partial HI}{\partial \rho_w} \right) \frac{\mathrm d \rho_w}{\mathrm d T}
+\end{eqnarray}
+
+Wenn wir einsetzen, kommt dieses unlesbare Monstrum raus:
+
+\begin{multline}
+    \mathrm d HI = ( 6.311786 \cdot 10^{-8}\, \rho_w\, e^{-0.1066\, T}\, T^2 - \\ - 1.94865 \cdot 10^{-5}\, \rho_w\, e^{-0.0533\, T}\, T^2 - 1.39655 \cdot 10^{-5}\, \rho_w\, e^{-0.1066\, T}\, T + \\  + 0.00201855\, \rho_w\, e^{-0.0533\, T}\, T + 0.000409319\, \rho_w\, e^{-0.1066\, T} - \\ - 0.0447535\, \rho_w\, e^{-0.0533\, T} - 0.02462\, T + 1.61139 ) + \\ + (2.01 \cdot 10^{-7}\, e^{0,036\, T}\, T^2 - 0,00012\, e^{-0.0533\, T}\, T^2 - \\ - 0,000041\, e^{-0.1066\, T}\, T + 0,0082\, e^{-0.0533\, T}\, T + \\ + 0,00092\, e^{-0.1066\, T} - 0,13\, e^{-0.0533\, T})
+\end{multline}
+
+\end{document}
