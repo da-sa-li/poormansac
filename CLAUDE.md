@@ -69,29 +69,29 @@ crosses the entity/config boundary, convert it there, not inside `calc.py`.
 are in tension, resolve it in favour of the integration — never the other way
 around.
 
-The GitHub Pages calculator (`docs/`) is a secondary artefact: a convenience
+The GitHub Pages calculator (`pages/`) is a secondary artefact: a convenience
 tool for testing extreme values and an explainer for interested readers. It has
 no influence on HA behaviour and must never drive changes to the integration
 code.
 
 Consequence: when `calc.py` or `const.py` change for integration reasons,
-`docs/calc.js` must be updated to match — not the reverse. The CI job
+`pages/calc.js` must be updated to match — not the reverse. The CI job
 `Rechner-Parität` (`test.yml`) enforces this automatically by comparing both
 implementations against the same reference values on every push/PR.
 
-## Website (`docs/`)
+## Website (`pages/`)
 
-- `docs/calc.js` — 1:1 JavaScript port of `calc.py` + model constants from
+- `pages/calc.js` — 1:1 JavaScript port of `calc.py` + model constants from
   `const.py`. Contains a conditional `module.exports` so Node.js can import it
   for testing; has no effect in the browser.
-- `docs/index.html` — single-file static calculator. Loads `calc.js` via
+- `pages/index.html` — single-file static calculator. Loads `calc.js` via
   `<script src="calc.js">` and adds only UI logic (input validation, DOM
   rendering). No build step, no dependencies.
 - `tests/gen_calc_reference.py` — generates JSON reference values from `calc.py`
   for the parity test.
 - `tests/test_calc_parity.js` — Node.js parity test; run by CI.
 
-**When changing the integration math or constants:** update `docs/calc.js` in
+**When changing the integration math or constants:** update `pages/calc.js` in
 the same commit/PR. The parity test will fail if you forget.
 
 ## Dev

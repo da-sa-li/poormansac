@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+language: "en-US"
+early_access: false
+reviews:
+  profile: "assertive"
+  request_changes_workflow: false
+  high_level_summary: true
+  poem: false
+  review_status: true
+  review_details: false
+  auto_review:
+    enabled: true
+    drafts: false
+  path_instructions:
+    - path: "derivations/**"
+      instructions: |
+        This directory is the base of thermodynamic calculations in the code. Review with rigour.
+    - path: "pages/**"
+      instructions: |
+        - The Home Assistant integration is the primary deliverable. Everything in custom_components/ takes precedence. When the integration and the website are in tension, resolve it in favour of the integration — never the other way around.
+        - The GitHub Pages calculator (pages/) is a secondary artefact: a convenience tool for testing extreme values and an explainer for interested readers. It has no influence on HA behaviour and must never drive changes to the integration code.
+chat:
+  auto_reply: true
