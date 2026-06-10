@@ -77,6 +77,15 @@ SENSORS: tuple[PoorMansACSensorDescription, ...] = (
         value_fn=lambda data: data.wet_bulb_depression,
     ),
     PoorMansACSensorDescription(
+        key="optimal_water_uptake",
+        translation_key="optimal_water_uptake",
+        native_unit_of_measurement="g/kg",
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=2,
+        icon="mdi:water-plus",
+        value_fn=lambda data: data.optimal_water_uptake,
+    ),
+    PoorMansACSensorDescription(
         key="d_hi",
         translation_key="d_hi",
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,

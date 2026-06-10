@@ -48,6 +48,9 @@
       "wet_bulb_depression": {
         "name": "Sättigungsabstand"
       },
+      "optimal_water_uptake": {
+        "name": "Optimale Verdunstungsmenge"
+      },
       "d_hi": {
         "name": "Hitzeindex-Differential"
       },

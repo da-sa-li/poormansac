@@ -46,6 +46,8 @@ class PoorMansACData:
     wet_bulb_temperature: float | None = None
     # Wet-bulb depression t - t_wb in K: the maximum achievable evaporative cooling.
     wet_bulb_depression: float | None = None
+    # Water uptake to the heat-index minimum along the isenthalpic path, g/kg.
+    optimal_water_uptake: float | None = None
     d_hi_dt: float | None = None
     d_hi_dx: float | None = None
     d_hi: float | None = None
@@ -155,6 +157,8 @@ class PoorMansACCoordinator(DataUpdateCoordinator[PoorMansACData]):
             heat_index=calc.heat_index(t, x, pressure),
             wet_bulb_temperature=t_wb,
             wet_bulb_depression=t - t_wb,
+            optimal_water_uptake=calc.optimal_water_uptake(t, x, pressure, self._dx_dt)
+            * 1000.0,  # expose in g_water/kg_air
             d_hi_dt=calc.d_hi_d_t(t, x, pressure),
             d_hi_dx=calc.d_hi_d_x(t, x, pressure),
             d_hi=d_hi,

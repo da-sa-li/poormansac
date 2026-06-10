@@ -207,6 +207,47 @@ def test_wet_bulb_temperature_saturated_air_equals_dry_bulb():
     assert calc.wet_bulb_temperature(30.0, x, P0, const.DEFAULT_DX_DT) == 30.0
 
 
+def test_optimal_water_uptake_reaches_saturation_when_hi_falls_throughout():
+    """Moderate heat (30 C / 50 %): dHI < 0 all the way, uptake = saturation."""
+    t, rh = 30.0, 50.0
+    x = calc.mixing_ratio(t, rh, P0)
+    t_wb = calc.wet_bulb_temperature(t, x, P0, const.DEFAULT_DX_DT)
+    uptake = calc.optimal_water_uptake(t, x, P0, const.DEFAULT_DX_DT)
+    assert uptake == pytest.approx(const.DEFAULT_DX_DT * (t_wb - t), rel=1e-6)
+
+
+def test_optimal_water_uptake_zero_when_cooling_hurts():
+    """Hot and humid (40 C / 90 %): dHI > 0, no water should be evaporated."""
+    x = calc.mixing_ratio(40.0, 90.0, P0)
+    assert calc.optimal_water_uptake(40.0, x, P0, const.DEFAULT_DX_DT) == 0.0
+
+
+def test_optimal_water_uptake_zero_at_saturation():
+    """Saturated air: nothing can evaporate, uptake is exactly 0 (not -0.0)."""
+    x = calc.mixing_ratio(30.0, 100.0, P0)
+    uptake = calc.optimal_water_uptake(30.0, x, P0, const.DEFAULT_DX_DT)
+    assert uptake == 0.0
+    assert str(uptake) == "0.0"
+
+
+def test_optimal_water_uptake_stops_at_hi_minimum_before_saturation():
+    """Very hot near the decision boundary (44 C / 54 %): dHI flips sign along
+    the path, so the optimal uptake ends at the heat-index minimum, strictly
+    between zero and the saturation uptake."""
+    t, rh = 44.0, 54.0
+    x = calc.mixing_ratio(t, rh, P0)
+    t_wb = calc.wet_bulb_temperature(t, x, P0, const.DEFAULT_DX_DT)
+    saturation_uptake = const.DEFAULT_DX_DT * (t_wb - t)
+    uptake = calc.optimal_water_uptake(t, x, P0, const.DEFAULT_DX_DT)
+    assert 0.0 < uptake < saturation_uptake
+    # The endpoint is the heat-index minimum: dHI vanishes there.
+    t_end = t + uptake / const.DEFAULT_DX_DT
+    x_end = x + uptake
+    assert calc.d_hi_cooling(t_end, x_end, P0, const.DEFAULT_DX_DT) == pytest.approx(
+        0.0, abs=1e-3
+    )
+
+
 def test_wet_bulb_depression_shrinks_with_humidity():
     """Drier air allows more evaporative cooling (larger depression)."""
     depressions = []

@@ -48,6 +48,9 @@
       "wet_bulb_depression": {
         "name": "Wet-bulb depression"
       },
+      "optimal_water_uptake": {
+        "name": "Optimal water uptake"
+      },
       "d_hi": {
         "name": "Heat index differential"
       },

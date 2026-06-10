@@ -176,3 +176,40 @@ def wet_bulb_temperature(t: float, x: float, pressure: float, dx_dt: float) -> f
         else:
             hi = mid
     return 0.5 * (lo + hi)
+
+
+def optimal_water_uptake(t: float, x: float, pressure: float, dx_dt: float) -> float:
+    """Comfort-optimal water uptake along the isenthalpic path, kg_water/kg_dry_air.
+
+    Walks the isenthalpic cooling line from ``(t, x)`` for as long as the heat
+    index still falls (``d_hi_cooling < 0``) and stops at the first sign
+    change — the local heat-index minimum — or at saturation (the wet-bulb
+    point), whichever comes first.  The result is the water-loading increase up
+    to that point: the largest amount of water evaporative cooling should add.
+    Zero when cooling does not improve comfort at the current state.
+    """
+    if d_hi_cooling(t, x, pressure, dx_dt) >= 0.0:
+        return 0.0
+    t_wb = wet_bulb_temperature(t, x, pressure, dx_dt)
+
+    def hi_falling(t_path: float) -> bool:
+        x_path = x + dx_dt * (t_path - t)
+        return d_hi_cooling(t_path, x_path, pressure, dx_dt) < 0.0
+
+    # Coarse march keeps the *first* sign change; bisection then refines it.
+    step = 0.25
+    hi_end = t
+    lo_end = max(t - step, t_wb)
+    while hi_falling(lo_end):
+        if lo_end <= t_wb:
+            # + 0.0 normalises the -0.0 of already saturated air.
+            return dx_dt * (t_wb - t) + 0.0
+        hi_end = lo_end
+        lo_end = max(lo_end - step, t_wb)
+    for _ in range(50):
+        mid = 0.5 * (lo_end + hi_end)
+        if hi_falling(mid):
+            hi_end = mid
+        else:
+            lo_end = mid
+    return dx_dt * (0.5 * (lo_end + hi_end) - t)
