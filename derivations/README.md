@@ -56,14 +56,14 @@ $$\begin{align}
 \mathrm d h &= 0 \\
 0 &= c_p \mathrm d T + \Delta H_v \mathrm d x \\
 \frac{\mathrm d x}{\mathrm d T} &= -\frac{c_p}{\Delta H_v} \\
-\frac{\mathrm d x}{\mathrm d T} &= -0.41 \, \text{K} \cdot \text{g}_w \cdot \text{kg}_L^{-1}
+\frac{\mathrm d x}{\mathrm d T} &= -0.41 \, \text{g}_w \cdot \text{kg}_L^{-1} \cdot \text{K}^{-1}
 \end{align}$$
 
 where $x$ is the mixing ratio and $\Delta H_v$ is the enthalpy of vaporization.
 
 With air density $\varrho_L = 1.2041 \, \text{kg} \cdot \text{m}^{-3}$ (assumed constant), we obtain:
 
-$$\frac{\mathrm d \rho_w}{\mathrm d T} = -0.34 \, \text{K} \cdot \text{g}_w \cdot \text{m}_L^{-3}$$
+$$\frac{\mathrm d \rho_w}{\mathrm d T} = -4.94 \times 10^{-4} \, \text{kg} \cdot \text{m}^{-3} \cdot \text{K}^{-1} \approx -0.494 \, \text{g} \cdot \text{m}^{-3} \cdot \text{K}^{-1}$$
 
 ## Differential Equation
 
@@ -73,6 +73,6 @@ $$\frac{\mathrm d HI}{\mathrm{d T}} = \left( \frac{\partial HI}{\partial T} \rig
 
 Substituting the expressions, we arrive at the governing equation for how the heat index changes along an adiabatic cooling path:
 
-$$\mathrm d HI = \left( 6.311786 \cdot 10^{-8}\, \rho_w\, e^{-0.1066\, T}\, T^2 - 1.94865 \cdot 10^{-5}\, \rho_w\, e^{-0.0533\, T}\, T^2 - 1.39655 \cdot 10^{-5}\, \rho_w\, e^{-0.1066\, T}\, T + 0.00201855\, \rho_w\, e^{-0.0533\, T}\, T + 0.000409319\, \rho_w\, e^{-0.1066\, T} - 0.0447535\, \rho_w\, e^{-0.0533\, T} - 0.02462\, T + 1.61139 \right) + \left( 2.01 \cdot 10^{-7}\, e^{0.036\, T}\, T^2 - 0.00012\, e^{-0.0533\, T}\, T^2 - 0.000041\, e^{-0.1066\, T}\, T + 0.0082\, e^{-0.0533\, T}\, T + 0.00092\, e^{-0.1066\, T} - 0.13\, e^{-0.0533\, T} \right) \mathrm d T$$
+$$\mathrm d HI = \left( 6.311786 \cdot 10^{-8}\, \rho_w\, e^{-0.1066\, T}\, T^2 - 1.94865 \cdot 10^{-5}\, \rho_w\, e^{-0.0533\, T}\, T^2 - 1.39655 \cdot 10^{-5}\, \rho_w\, e^{-0.1066\, T}\, T + 0.00201855\, \rho_w\, e^{-0.0533\, T}\, T + 0.000409319\, \rho_w\, e^{-0.1066\, T} - 0.0447535\, \rho_w\, e^{-0.0533\, T} - 0.02462\, T + 1.61139 \right) + \left( 2.01 \cdot 10^{-7}\, e^{-0.1066\, T}\, T^2 - 0.00012\, e^{-0.0533\, T}\, T^2 - 0.000041\, e^{-0.1066\, T}\, T + 0.0082\, e^{-0.0533\, T}\, T + 0.00092\, e^{-0.1066\, T} - 0.13\, e^{-0.0533\, T} \right) \mathrm d T$$
 
 This differential equation describes the rate of change of the heat index with respect to temperature during adiabatic cooling, allowing us to determine whether direct evaporative cooling is thermodynamically advantageous for a given set of ambient conditions.
