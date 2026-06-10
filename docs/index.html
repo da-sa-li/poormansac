@@ -423,8 +423,66 @@
 
 </main>
 
-<script src="calc.js"></script>
+<script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
 <script>
+// ── calc.py / const.py executed directly in the browser via Pyodide ────────
+// The website no longer re-implements the integration math in JavaScript: it
+// loads the integration's own calc.py and const.py and runs them with CPython
+// compiled to WebAssembly.  There is a single source of truth and therefore no
+// parity test.  These bindings are populated once Pyodide has finished loading.
+let saturation_vapour_pressure, mixing_ratio, absolute_humidity,
+    heat_index, d_hi_d_t, d_hi_d_x;
+let DX_DT, DELTA_T, THRESHOLD;
+
+// calc.py and const.py live outside the published docs/ root, so try the
+// repository-relative path first (works when a local server is started from the
+// repository root) and fall back to raw.githubusercontent.com for the deployed
+// GitHub Pages site, where docs/ is the web root.
+const SOURCE_BASES = [
+    '../custom_components/poormansac/',
+    'https://raw.githubusercontent.com/da-sa-li/poormansac/main/custom_components/poormansac/',
+];
+
+async function fetchSource(name) {
+    let lastErr;
+    for (const base of SOURCE_BASES) {
+        try {
+            const r = await fetch(base + name, { cache: 'no-cache' });
+            if (r.ok) return await r.text();
+            lastErr = new Error(`HTTP ${r.status} for ${base + name}`);
+        } catch (e) { lastErr = e; }
+    }
+    throw lastErr;
+}
+
+async function initPyodide() {
+    const pyodide = await loadPyodide();
+    // const.py first (DEFAULT_* constants), then calc.py (functions). Neither
+    // imports the other nor Home Assistant, so both run unmodified.
+    const [constSrc, calcSrc] = await Promise.all([
+        fetchSource('const.py'),
+        fetchSource('calc.py'),
+    ]);
+    pyodide.runPython(constSrc);
+    pyodide.runPython(calcSrc);
+
+    const g = pyodide.globals;
+    saturation_vapour_pressure = g.get('saturation_vapour_pressure');
+    mixing_ratio               = g.get('mixing_ratio');
+    absolute_humidity          = g.get('absolute_humidity');
+    heat_index                 = g.get('heat_index');
+    d_hi_d_t                   = g.get('d_hi_d_t');
+    d_hi_d_x                   = g.get('d_hi_d_x');
+
+    DX_DT     = g.get('DEFAULT_DX_DT');      // const.py model constant
+    THRESHOLD = g.get('DEFAULT_THRESHOLD');  // const.py model constant
+    // DELTA_T is the default cooling step of d_hi_cooling, sourced straight from
+    // calc.py rather than duplicated here.
+    DELTA_T = pyodide.runPython(
+        "__import__('inspect').signature(d_hi_cooling).parameters['delta_t'].default"
+    );
+}
+
 // ── UI ────────────────────────────────────────────────────────────────────
 function sp(v, d) {
     // signed, fixed-decimal
@@ -710,15 +768,41 @@ function drawChart(t_s, x_s, p_pa, dhi) {
     ctx.restore();
 }
 
-['t', 'rh', 'p'].forEach(id =>
-    document.getElementById(id).addEventListener('input', compute)
-);
+function showLoading() {
+    const v = document.getElementById('verdict');
+    v.className = 'verdict';
+    v.innerHTML = 'Loading calculator…' +
+        '<div class="sub">Fetching the Python runtime and the integration’s calc.py</div>';
+}
 
-// Redraw chart on container resize or system dark/light mode change
-new ResizeObserver(() => compute()).observe(document.getElementById('chart'));
-window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => compute());
+function showLoadError(err) {
+    const v = document.getElementById('verdict');
+    v.className = 'verdict no';
+    v.innerHTML = 'Calculator failed to load' +
+        `<div class="sub">${(err && err.message) ? err.message : err}</div>`;
+}
 
-compute();
+// The math is only available once Pyodide has loaded calc.py / const.py, so the
+// input listeners and the first compute() are wired up after initialisation.
+showLoading();
+initPyodide().then(() => {
+    ['t', 'rh', 'p'].forEach(id =>
+        document.getElementById(id).addEventListener('input', compute)
+    );
+    // Redraw chart on container resize or system dark/light mode change.
+    // ResizeObserver fires in bursts during a drag, and each compute() crosses
+    // the JS↔Python (Pyodide) boundary many times, so debounce the resize.
+    let resizeTimer;
+    new ResizeObserver(() => {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(compute, 50);
+    }).observe(document.getElementById('chart'));
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => compute());
+    compute();
+}).catch(err => {
+    console.error(err);
+    showLoadError(err);
+});
 </script>
 </body>
 </html>
