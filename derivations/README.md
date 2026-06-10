@@ -1,3 +1,6 @@
+> [!CAUTION]
+> This README is not up to date and contains errors.
+
 # On the Advantageousness of Direct Adiabatic Cooling in Residential Spaces
 
 ## Introduction
