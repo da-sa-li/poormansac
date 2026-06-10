@@ -1,0 +1,39 @@
+{
+  "entity": {
+    "binary_sensor": {
+      "cooling_recommended": {
+        "default": "mdi:air-humidifier-off",
+        "state": {
+          "on": "mdi:air-humidifier",
+          "off": "mdi:air-humidifier-off"
+        }
+      }
+    },
+    "sensor": {
+      "absolute_humidity": {
+        "default": "mdi:water"
+      },
+      "mixing_ratio": {
+        "default": "mdi:water-percent"
+      },
+      "wet_bulb_temperature": {
+        "default": "mdi:thermometer-water"
+      },
+      "wet_bulb_depression": {
+        "default": "mdi:thermometer-chevron-down"
+      },
+      "optimal_water_uptake": {
+        "default": "mdi:water-plus"
+      },
+      "d_hi": {
+        "default": "mdi:delta"
+      },
+      "d_hi_dt": {
+        "default": "mdi:function-variant"
+      },
+      "d_hi_dx": {
+        "default": "mdi:function-variant"
+      }
+    }
+  }
+}

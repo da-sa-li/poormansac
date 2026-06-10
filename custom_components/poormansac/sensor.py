@@ -45,7 +45,6 @@ SENSORS: tuple[PoorMansACSensorDescription, ...] = (
         native_unit_of_measurement="g/m³",
         state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=2,
-        icon="mdi:water",
         value_fn=lambda data: data.absolute_humidity,
     ),
     PoorMansACSensorDescription(
@@ -54,7 +53,6 @@ SENSORS: tuple[PoorMansACSensorDescription, ...] = (
         native_unit_of_measurement="g/kg",
         state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=2,
-        icon="mdi:water-percent",
         value_fn=lambda data: data.mixing_ratio,
     ),
     PoorMansACSensorDescription(
@@ -64,7 +62,6 @@ SENSORS: tuple[PoorMansACSensorDescription, ...] = (
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
         state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=1,
-        icon="mdi:thermometer-water",
         value_fn=lambda data: data.wet_bulb_temperature,
     ),
     PoorMansACSensorDescription(
@@ -73,7 +70,6 @@ SENSORS: tuple[PoorMansACSensorDescription, ...] = (
         native_unit_of_measurement="K",
         state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=1,
-        icon="mdi:thermometer-chevron-down",
         value_fn=lambda data: data.wet_bulb_depression,
     ),
     PoorMansACSensorDescription(
@@ -82,7 +78,6 @@ SENSORS: tuple[PoorMansACSensorDescription, ...] = (
         native_unit_of_measurement="g/kg",
         state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=2,
-        icon="mdi:water-plus",
         value_fn=lambda data: data.optimal_water_uptake,
     ),
     PoorMansACSensorDescription(
@@ -91,7 +86,6 @@ SENSORS: tuple[PoorMansACSensorDescription, ...] = (
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
         state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=3,
-        icon="mdi:delta",
         value_fn=lambda data: data.d_hi,
     ),
     PoorMansACSensorDescription(
@@ -101,7 +95,6 @@ SENSORS: tuple[PoorMansACSensorDescription, ...] = (
         suggested_display_precision=4,
         entity_category=EntityCategory.DIAGNOSTIC,
         entity_registry_enabled_default=False,
-        icon="mdi:function-variant",
         value_fn=lambda data: data.d_hi_dt,
     ),
     PoorMansACSensorDescription(
@@ -111,7 +104,6 @@ SENSORS: tuple[PoorMansACSensorDescription, ...] = (
         suggested_display_precision=2,
         entity_category=EntityCategory.DIAGNOSTIC,
         entity_registry_enabled_default=False,
-        icon="mdi:function-variant",
         value_fn=lambda data: data.d_hi_dx,
     ),
 )
