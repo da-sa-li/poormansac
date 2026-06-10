@@ -69,30 +69,36 @@ crosses the entity/config boundary, convert it there, not inside `calc.py`.
 are in tension, resolve it in favour of the integration — never the other way
 around.
 
-The GitHub Pages calculator (`pages/`) is a secondary artefact: a convenience
+The GitHub Pages calculator (`docs/`) is a secondary artefact: a convenience
 tool for testing extreme values and an explainer for interested readers. It has
 no influence on HA behaviour and must never drive changes to the integration
 code.
 
-Consequence: when `calc.py` or `const.py` change for integration reasons,
-`pages/calc.js` must be updated to match — not the reverse. The CI job
-`Rechner-Parität` (`test.yml`) enforces this automatically by comparing both
-implementations against the same reference values on every push/PR.
+Consequence: the calculator runs `calc.py` and `const.py` **directly** in the
+browser via Pyodide (CPython compiled to WebAssembly), so there is a single
+source of truth and no JavaScript re-implementation to keep in sync. Changes to
+the integration math reach the website automatically — there is nothing to port
+and no parity test to satisfy.
 
-## Website (`pages/`)
+## Website (`docs/`)
 
-- `pages/calc.js` — 1:1 JavaScript port of `calc.py` + model constants from
-  `const.py`. Contains a conditional `module.exports` so Node.js can import it
-  for testing; has no effect in the browser.
-- `pages/index.html` — single-file static calculator. Loads `calc.js` via
-  `<script src="calc.js">` and adds only UI logic (input validation, DOM
-  rendering). No build step, no dependencies.
-- `tests/gen_calc_reference.py` — generates JSON reference values from `calc.py`
-  for the parity test.
-- `tests/test_calc_parity.js` — Node.js parity test; run by CI.
+- `docs/index.html` — single-file static calculator. It loads Pyodide from a
+  CDN, fetches the integration's own `calc.py` and `const.py`, and executes them
+  in the browser. The page itself contains only UI logic (input validation,
+  psychrometric chart, DOM rendering). No build step.
+- **Source loading:** `index.html` tries the repo-relative path
+  `../custom_components/poormansac/` first (works when a local server is started
+  from the repository root) and falls back to
+  `raw.githubusercontent.com/da-sa-li/poormansac/main/...` for the deployed
+  GitHub Pages site, where `docs/` is the web root.
+- **Constants:** `DX_DT` and `THRESHOLD` come from `const.py`
+  (`DEFAULT_DX_DT` / `DEFAULT_THRESHOLD`); `DELTA_T` is read from the default of
+  `calc.d_hi_cooling`. None are duplicated in the page.
 
-**When changing the integration math or constants:** update `pages/calc.js` in
-the same commit/PR. The parity test will fail if you forget.
+**When changing the integration math or constants:** nothing extra is required —
+the website executes `calc.py`/`const.py` as-is. Just keep the public function
+names and the `DEFAULT_*` constant names stable, since `index.html` looks them
+up by name.
 
 ## Dev
 
@@ -101,4 +107,4 @@ the same commit/PR. The parity test will fail if you forget.
 - CI (`.github/workflows/validate.yml`) runs Home Assistant **hassfest** on
   push and pull request.
 - CI (`.github/workflows/test.yml`) runs Python unit tests (`pytest -m
-  thermodynamics`) and the JS/Python parity check (`Rechner-Parität`).
+  thermodynamics`).
