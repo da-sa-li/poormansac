@@ -17,9 +17,11 @@ from homeassistant.helpers import selector
 
 from .const import (
     CONF_HUMIDITY_ENTITY,
+    CONF_MIN_HOLD_TIME,
     CONF_PRESSURE_ENTITY,
     CONF_TEMPERATURE_ENTITY,
     CONF_THRESHOLD,
+    DEFAULT_MIN_HOLD_TIME,
     DEFAULT_NAME,
     DEFAULT_THRESHOLD,
     DOMAIN,
@@ -91,6 +93,10 @@ class PoorMansACOptionsFlow(OptionsFlow):
                     CONF_THRESHOLD,
                     default=options.get(CONF_THRESHOLD, DEFAULT_THRESHOLD),
                 ): vol.Coerce(float),
+                vol.Optional(
+                    CONF_MIN_HOLD_TIME,
+                    default=options.get(CONF_MIN_HOLD_TIME, DEFAULT_MIN_HOLD_TIME),
+                ): vol.All(vol.Coerce(float), vol.Range(min=0)),
             }
         )
         return self.async_show_form(step_id="init", data_schema=schema)

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
@@ -12,19 +13,31 @@ from homeassistant.const import (
     STATE_UNKNOWN,
     UnitOfPressure,
 )
-from homeassistant.core import Event, EventStateChangedData, HomeAssistant, callback
+from homeassistant.core import (
+    CALLBACK_TYPE,
+    Event,
+    EventStateChangedData,
+    HomeAssistant,
+    callback,
+)
 from homeassistant.exceptions import HomeAssistantError
-from homeassistant.helpers.event import async_track_state_change_event
+from homeassistant.helpers.event import (
+    async_track_point_in_time,
+    async_track_state_change_event,
+)
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
+from homeassistant.util import dt as dt_util
 from homeassistant.util.unit_conversion import PressureConverter
 
 from . import calc
 from .const import (
     CONF_HUMIDITY_ENTITY,
+    CONF_MIN_HOLD_TIME,
     CONF_PRESSURE_ENTITY,
     CONF_TEMPERATURE_ENTITY,
     CONF_THRESHOLD,
     DEFAULT_DX_DT,
+    DEFAULT_MIN_HOLD_TIME,
     DEFAULT_PRESSURE_HPA,
     DEFAULT_THRESHOLD,
     DOMAIN,
@@ -65,6 +78,14 @@ class PoorMansACCoordinator(DataUpdateCoordinator[PoorMansACData]):
         self._dx_dt = DEFAULT_DX_DT
         # Boundary conversion: the human-facing hPa fallback -> Pa for the math.
         self._pressure_fallback = DEFAULT_PRESSURE_HPA * 100.0
+        # Hysteresis: minimum time the cooling_recommended state must hold
+        # before it is allowed to flip again.
+        self._min_hold_time = timedelta(
+            minutes=entry.options.get(CONF_MIN_HOLD_TIME, DEFAULT_MIN_HOLD_TIME)
+        )
+        self._cooling_recommended: bool | None = None
+        self._cooling_recommended_since: datetime | None = None
+        self._pending_flip_unsub: CALLBACK_TYPE | None = None
 
     @property
     def dx_dt(self) -> float:
@@ -83,6 +104,7 @@ class PoorMansACCoordinator(DataUpdateCoordinator[PoorMansACData]):
                 self._handle_source_change,
             )
         )
+        self.entry.async_on_unload(self._cancel_pending_flip)
         await self.async_refresh()
 
     async def _async_update_data(self) -> PoorMansACData:
@@ -91,6 +113,48 @@ class PoorMansACCoordinator(DataUpdateCoordinator[PoorMansACData]):
     @callback
     def _handle_source_change(self, event: Event[EventStateChangedData]) -> None:
         self.async_set_updated_data(self._compute())
+
+    def _apply_hysteresis(self, raw: bool) -> bool:
+        """Debounce ``raw`` so it only flips after ``_min_hold_time`` has elapsed."""
+        now = dt_util.utcnow()
+
+        if self._cooling_recommended is None:
+            self._cooling_recommended = raw
+            self._cooling_recommended_since = now
+            return raw
+
+        if raw == self._cooling_recommended:
+            self._cancel_pending_flip()
+            return self._cooling_recommended
+
+        if now - self._cooling_recommended_since >= self._min_hold_time:
+            self._cooling_recommended = raw
+            self._cooling_recommended_since = now
+            self._cancel_pending_flip()
+            return raw
+
+        self._schedule_flip()
+        return self._cooling_recommended
+
+    def _schedule_flip(self) -> None:
+        """Re-evaluate once the hold time for the current state has elapsed."""
+        if self._pending_flip_unsub is not None:
+            return
+        when = self._cooling_recommended_since + self._min_hold_time
+        self._pending_flip_unsub = async_track_point_in_time(
+            self.hass, self._handle_pending_flip, when
+        )
+
+    @callback
+    def _handle_pending_flip(self, _now: datetime) -> None:
+        self._pending_flip_unsub = None
+        self.async_set_updated_data(self._compute())
+
+    @callback
+    def _cancel_pending_flip(self) -> None:
+        if self._pending_flip_unsub is not None:
+            self._pending_flip_unsub()
+            self._pending_flip_unsub = None
 
     def _read(self, entity_id: str) -> float | None:
         state = self.hass.states.get(entity_id)
@@ -152,5 +216,5 @@ class PoorMansACCoordinator(DataUpdateCoordinator[PoorMansACData]):
             d_hi_dt=calc.d_hi_d_t(t, x, pressure),
             d_hi_dx=calc.d_hi_d_x(t, x, pressure),
             d_hi=d_hi,
-            cooling_recommended=d_hi < self._threshold,
+            cooling_recommended=self._apply_hysteresis(d_hi < self._threshold),
         )

@@ -21,7 +21,8 @@
       "init": {
         "title": "Poor Man's AC Einstellungen",
         "data": {
-          "threshold": "dHI-Schwellwert [°C] (Kühlung empfohlen darunter)"
+          "threshold": "dHI-Schwellwert [°C] (Kühlung empfohlen darunter)",
+          "min_hold_time": "Mindesthaltezeit [min] (Zustand muss so lange anhalten, bevor er wechseln kann)"
         }
       }
     }
