@@ -42,6 +42,12 @@
       "mixing_ratio": {
         "name": "Wasserbeladung"
       },
+      "wet_bulb_temperature": {
+        "name": "Kühlgrenztemperatur"
+      },
+      "wet_bulb_depression": {
+        "name": "Sättigungsabstand"
+      },
       "d_hi": {
         "name": "Hitzeindex-Differential"
       },

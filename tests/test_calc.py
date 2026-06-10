@@ -180,3 +180,39 @@ def test_d_hi_cooling_recommends_off_when_already_saturated():
     """Very hot, near-saturated air (40 C / 90 % rF): cooling raises heat index."""
     x = calc.mixing_ratio(40.0, 90.0, P0)
     assert calc.d_hi_cooling(40.0, x, P0, const.DEFAULT_DX_DT) > 0
+
+
+# --- 7. Wet-bulb temperature (cooling limit) ------------------------------
+
+
+def test_wet_bulb_temperature_reference():
+    """Model wet bulb at 30 C / 50 % matches the psychrometric ~22 C."""
+    x = calc.mixing_ratio(30.0, 50.0, P0)
+    t_wb = calc.wet_bulb_temperature(30.0, x, P0, const.DEFAULT_DX_DT)
+    assert t_wb == pytest.approx(22.0, abs=0.3)
+
+
+def test_wet_bulb_temperature_lies_on_saturation_curve():
+    """The result is the root: the cooling line meets the saturation curve."""
+    t, rh = 35.0, 40.0
+    x = calc.mixing_ratio(t, rh, P0)
+    t_wb = calc.wet_bulb_temperature(t, x, P0, const.DEFAULT_DX_DT)
+    x_path = x + const.DEFAULT_DX_DT * (t_wb - t)
+    assert x_path == pytest.approx(calc.mixing_ratio(t_wb, 100.0, P0), rel=1e-9)
+
+
+def test_wet_bulb_temperature_saturated_air_equals_dry_bulb():
+    """At 100 % relative humidity no evaporative cooling is possible."""
+    x = calc.mixing_ratio(30.0, 100.0, P0)
+    assert calc.wet_bulb_temperature(30.0, x, P0, const.DEFAULT_DX_DT) == 30.0
+
+
+def test_wet_bulb_depression_shrinks_with_humidity():
+    """Drier air allows more evaporative cooling (larger depression)."""
+    depressions = []
+    for rh in (20.0, 50.0, 80.0, 95.0):
+        x = calc.mixing_ratio(30.0, rh, P0)
+        t_wb = calc.wet_bulb_temperature(30.0, x, P0, const.DEFAULT_DX_DT)
+        assert t_wb < 30.0
+        depressions.append(30.0 - t_wb)
+    assert depressions == sorted(depressions, reverse=True)

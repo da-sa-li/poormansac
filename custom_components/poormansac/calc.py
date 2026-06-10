@@ -16,9 +16,9 @@ explicitly.  Along the isenthalpic path ``p`` is constant, so only ``T`` and
 
     dHI = (dHI/dT) * dT + (dHI/dx) * dx
 
-``dx/dT`` along the isenthalpic process line is supplied as a configurable
-constant.  A negative ``dHI`` means evaporative cooling lowers the heat index
-and therefore improves comfort.
+``dx/dT`` along the isenthalpic process line is supplied as a fixed model
+constant (``const.DEFAULT_DX_DT``).  A negative ``dHI`` means evaporative
+cooling lowers the heat index and therefore improves comfort.
 """
 
 from __future__ import annotations
@@ -147,3 +147,32 @@ def d_hi_cooling(
     """
     dx = dx_dt * delta_t
     return d_hi_d_t(t, x, pressure) * delta_t + d_hi_d_x(t, x, pressure) * dx
+
+
+def wet_bulb_temperature(t: float, x: float, pressure: float, dx_dt: float) -> float:
+    """Cooling limit (thermodynamic wet-bulb) temperature in degrees Celsius.
+
+    Intersection of the isenthalpic cooling line through ``(t, x)`` — the same
+    straight line with slope ``dx_dt`` that ``d_hi_cooling`` differentiates
+    along — with the saturation curve ``mixing_ratio(t_wb, 100, pressure)``.
+    This is the lowest temperature direct evaporative cooling can reach.  For
+    already saturated (or supersaturated) air the result is ``t`` itself.
+    """
+    if x >= mixing_ratio(t, 100.0, pressure):
+        return t
+
+    def excess(t_path: float) -> float:
+        """Water loading on the cooling line minus saturation, at ``t_path``."""
+        return x + dx_dt * (t_path - t) - mixing_ratio(t_path, 100.0, pressure)
+
+    lo = t - 60.0
+    while excess(lo) < 0.0:
+        lo -= 60.0
+    hi = t
+    for _ in range(50):
+        mid = 0.5 * (lo + hi)
+        if excess(mid) >= 0.0:
+            lo = mid
+        else:
+            hi = mid
+    return 0.5 * (lo + hi)

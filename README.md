@@ -37,7 +37,10 @@ exposed as a sensor, but it is not part of the decision criterion.
 ## Entities
 
 - **binary_sensor** – `Adiabatic cooling recommended`
-- **sensor** – `Heat index`, `Absolute humidity`, `Water loading`, `Heat index differential (dHI)`
+- **sensor** – `Heat index`, `Absolute humidity`, `Water loading`, `Wet-bulb
+  temperature` (cooling limit along the isenthalpic path), `Wet-bulb
+  depression` (maximum achievable evaporative cooling, K), `Heat index
+  differential (dHI)`
 - diagnostic sensors `dHI/dT` and `dHI/dx` (disabled by default)
 
 ## Installation

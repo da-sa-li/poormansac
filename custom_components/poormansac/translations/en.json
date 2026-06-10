@@ -42,6 +42,12 @@
       "mixing_ratio": {
         "name": "Water loading"
       },
+      "wet_bulb_temperature": {
+        "name": "Wet-bulb temperature"
+      },
+      "wet_bulb_depression": {
+        "name": "Wet-bulb depression"
+      },
       "d_hi": {
         "name": "Heat index differential"
       },
