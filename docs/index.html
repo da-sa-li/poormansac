@@ -789,8 +789,14 @@ initPyodide().then(() => {
     ['t', 'rh', 'p'].forEach(id =>
         document.getElementById(id).addEventListener('input', compute)
     );
-    // Redraw chart on container resize or system dark/light mode change
-    new ResizeObserver(() => compute()).observe(document.getElementById('chart'));
+    // Redraw chart on container resize or system dark/light mode change.
+    // ResizeObserver fires in bursts during a drag, and each compute() crosses
+    // the JS↔Python (Pyodide) boundary many times, so debounce the resize.
+    let resizeTimer;
+    new ResizeObserver(() => {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(compute, 50);
+    }).observe(document.getElementById('chart'));
     window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => compute());
     compute();
 }).catch(err => {
