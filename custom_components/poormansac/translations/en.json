@@ -21,7 +21,8 @@
       "init": {
         "title": "Poor Man's AC settings",
         "data": {
-          "threshold": "dHI threshold [°C] (cooling recommended below this)"
+          "threshold": "dHI threshold [°C] (cooling recommended below this)",
+          "min_hold_time": "Minimum hold time [min] (state must persist this long before it can flip)"
         }
       }
     }
