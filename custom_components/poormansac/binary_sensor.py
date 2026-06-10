@@ -25,7 +25,6 @@ class CoolingRecommendedBinarySensor(PoorMansACEntity, BinarySensorEntity):
     """True when direct adiabatic cooling is expected to lower the heat index."""
 
     _attr_translation_key = "cooling_recommended"
-    _attr_icon = "mdi:air-humidifier"
 
     def __init__(self, coordinator, entry: PoorMansACConfigEntry) -> None:
         super().__init__(coordinator, entry, "cooling_recommended")
