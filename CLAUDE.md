@@ -94,6 +94,11 @@ and no parity test to satisfy.
 - **Constants:** `DX_DT` and `THRESHOLD` come from `const.py`
   (`DEFAULT_DX_DT` / `DEFAULT_THRESHOLD`); `DELTA_T` is read from the default of
   `calc.d_hi_cooling`. None are duplicated in the page.
+- **Pyodide version:** pinned as an exact version in the CDN `<script>` URL in
+  `index.html`. Because it is CDN-based with no JS/Python manifest, Dependabot
+  cannot track or bump it — update the version string manually against the
+  latest stable Pyodide release from time to time. (Dependabot here only covers
+  `github-actions`.)
 
 **When changing the integration math or constants:** nothing extra is required —
 the website executes `calc.py`/`const.py` as-is. Just keep the public function
