@@ -66,6 +66,18 @@ class PoorMansACCoordinator(DataUpdateCoordinator[PoorMansACData]):
     """Recomputes derived values whenever a source sensor changes."""
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
+        """
+        Initialize the coordinator with entities, thresholds, model constants, and hysteresis state.
+        
+        Parameters:
+            entry (ConfigEntry): Integration config entry used to read entity IDs (temperature, humidity, optional pressure) and options (threshold and minimum hold time).
+        
+        Initializes:
+            - Reads and stores temperature, humidity, and optional pressure entity IDs from `entry.data`.
+            - Loads threshold and model constant (`_dx_dt`) from `entry.options` / defaults.
+            - Converts fallback pressure from hPa to Pa and computes `_min_hold_time`.
+            - Sets up hysteresis state variables: `_cooling_recommended`, `_cooling_recommended_since`, and `_pending_flip_unsub`.
+        """
         super().__init__(hass, _LOGGER, name=DOMAIN, config_entry=entry)
         self.entry = entry
         self._temperature_entity = entry.data[CONF_TEMPERATURE_ENTITY]
@@ -108,14 +120,36 @@ class PoorMansACCoordinator(DataUpdateCoordinator[PoorMansACData]):
         await self.async_refresh()
 
     async def _async_update_data(self) -> PoorMansACData:
+        """
+        Produce the coordinator's current PoorMansACData snapshot.
+        
+        Returns:
+            PoorMansACData: Computed AC-related values (temperature, humidity, effective pressure, absolute_humidity, mixing_ratio, heat_index, derivatives, and cooling_recommended). If temperature or humidity cannot be read, those fields (and derived values) may be None.
+        """
         return self._compute()
 
     @callback
     def _handle_source_change(self, event: Event[EventStateChangedData]) -> None:
+        """
+        Recompute derived AC metrics and publish updated coordinator data when a tracked source entity changes.
+        
+        Parameters:
+            event (Event[EventStateChangedData]): The state change event for one of the tracked source entities.
+        """
         self.async_set_updated_data(self._compute())
 
     def _apply_hysteresis(self, raw: bool) -> bool:
-        """Debounce ``raw`` so it only flips after ``_min_hold_time`` has elapsed."""
+        """
+        Enforce a minimum hold time before changing the coordinator's cooling recommendation.
+        
+        If the stored recommendation is unset, initialize it to `raw`. If `raw` equals the current stored recommendation, any pending flip is cancelled and the stored value is returned. If the time since the stored recommendation was set is at least the configured minimum hold time, update the stored recommendation to `raw` and return it. Otherwise, schedule a delayed re-evaluation and return the current stored recommendation.
+        
+        Parameters:
+            raw (bool): The freshly computed cooling recommendation before hysteresis.
+        
+        Returns:
+            true if cooling is recommended after applying hysteresis, false otherwise.
+        """
         now = dt_util.utcnow()
 
         if self._cooling_recommended is None:
@@ -137,7 +171,11 @@ class PoorMansACCoordinator(DataUpdateCoordinator[PoorMansACData]):
         return self._cooling_recommended
 
     def _schedule_flip(self) -> None:
-        """Re-evaluate once the hold time for the current state has elapsed."""
+        """
+        Schedule a delayed re-evaluation to occur when the current hold window ends.
+        
+        If a pending flip is already scheduled, this does nothing. The scheduled callback will trigger a recompute when `self._cooling_recommended_since + self._min_hold_time` is reached.
+        """
         if self._pending_flip_unsub is not None:
             return
         when = self._cooling_recommended_since + self._min_hold_time
@@ -147,16 +185,36 @@ class PoorMansACCoordinator(DataUpdateCoordinator[PoorMansACData]):
 
     @callback
     def _handle_pending_flip(self, _now: datetime) -> None:
+        """
+        Handle a scheduled pending flip by clearing the pending-unsubscribe handle and publishing a recomputed coordinator dataset.
+        
+        Parameters:
+            _now (datetime): Scheduled callback time (unused).
+        """
         self._pending_flip_unsub = None
         self.async_set_updated_data(self._compute())
 
     @callback
     def _cancel_pending_flip(self) -> None:
+        """
+        Cancel any scheduled pending flip for the cooling recommendation.
+        
+        If a point-in-time callback was previously scheduled, unsubscribe it and clear the internal unsubscribe handle.
+        """
         if self._pending_flip_unsub is not None:
             self._pending_flip_unsub()
             self._pending_flip_unsub = None
 
     def _read(self, entity_id: str) -> float | None:
+        """
+        Read and parse a numeric state from Home Assistant, returning None for missing, unavailable, or non-numeric states.
+        
+        Parameters:
+        	entity_id (str): Entity ID to read.
+        
+        Returns:
+        	float | None: Parsed float value of the entity's state, or `None` if the state is absent, `unknown`, `unavailable`, or cannot be parsed as a number.
+        """
         state = self.hass.states.get(entity_id)
         if state is None or state.state in (STATE_UNKNOWN, STATE_UNAVAILABLE):
             return None
@@ -197,6 +255,24 @@ class PoorMansACCoordinator(DataUpdateCoordinator[PoorMansACData]):
         return self._pressure_fallback
 
     def _compute(self) -> PoorMansACData:
+        """
+        Compute derived air-conditioning metrics from the configured temperature and humidity sensors.
+        
+        If either temperature or relative-humidity readings are unavailable, returns a PoorMansACData containing only those raw values. Otherwise returns a PoorMansACData populated with ambient pressure, absolute humidity (g/m³), mixing ratio (g_water/kg_air), heat index, partial derivatives of the heat index (d_hi/dt and d_hi/dx), the cooling-directed heat-index derivative (d_hi), and the debounced `cooling_recommended` boolean.
+         
+        Returns:
+            PoorMansACData: Data object containing computed fields:
+                - temperature: source temperature reading
+                - humidity: source relative-humidity reading
+                - pressure: estimated ambient pressure in Pa
+                - absolute_humidity: absolute humidity in g/m³
+                - mixing_ratio: mixing ratio exposed as g_water/kg_air
+                - heat_index: computed heat index
+                - d_hi_dt: partial derivative of heat index with respect to temperature
+                - d_hi_dx: partial derivative of heat index with respect to mixing ratio
+                - d_hi: heat-index cooling derivative used for decisioning
+                - cooling_recommended: boolean indicating whether cooling is recommended after hysteresis
+        """
         t = self._read(self._temperature_entity)
         rh = self._read(self._humidity_entity)
         if t is None or rh is None:
