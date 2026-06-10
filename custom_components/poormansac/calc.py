@@ -16,9 +16,9 @@ explicitly.  Along the isenthalpic path ``p`` is constant, so only ``T`` and
 
     dHI = (dHI/dT) * dT + (dHI/dx) * dx
 
-``dx/dT`` along the isenthalpic process line is supplied as a configurable
-constant.  A negative ``dHI`` means evaporative cooling lowers the heat index
-and therefore improves comfort.
+``dx/dT`` along the isenthalpic process line is supplied as a fixed model
+constant (``const.DEFAULT_DX_DT``).  A negative ``dHI`` means evaporative
+cooling lowers the heat index and therefore improves comfort.
 """
 
 from __future__ import annotations
@@ -147,3 +147,69 @@ def d_hi_cooling(
     """
     dx = dx_dt * delta_t
     return d_hi_d_t(t, x, pressure) * delta_t + d_hi_d_x(t, x, pressure) * dx
+
+
+def wet_bulb_temperature(t: float, x: float, pressure: float, dx_dt: float) -> float:
+    """Cooling limit (thermodynamic wet-bulb) temperature in degrees Celsius.
+
+    Intersection of the isenthalpic cooling line through ``(t, x)`` — the same
+    straight line with slope ``dx_dt`` that ``d_hi_cooling`` differentiates
+    along — with the saturation curve ``mixing_ratio(t_wb, 100, pressure)``.
+    This is the lowest temperature direct evaporative cooling can reach.  For
+    already saturated (or supersaturated) air the result is ``t`` itself.
+    """
+    if x >= mixing_ratio(t, 100.0, pressure):
+        return t
+
+    def excess(t_path: float) -> float:
+        """Water loading on the cooling line minus saturation, at ``t_path``."""
+        return x + dx_dt * (t_path - t) - mixing_ratio(t_path, 100.0, pressure)
+
+    lo = t - 60.0
+    while excess(lo) < 0.0:
+        lo -= 60.0
+    hi = t
+    for _ in range(50):
+        mid = 0.5 * (lo + hi)
+        if excess(mid) >= 0.0:
+            lo = mid
+        else:
+            hi = mid
+    return 0.5 * (lo + hi)
+
+
+def optimal_water_uptake(t: float, x: float, pressure: float, dx_dt: float) -> float:
+    """Comfort-optimal water uptake along the isenthalpic path, kg_water/kg_dry_air.
+
+    Walks the isenthalpic cooling line from ``(t, x)`` for as long as the heat
+    index still falls (``d_hi_cooling < 0``) and stops at the first sign
+    change — the local heat-index minimum — or at saturation (the wet-bulb
+    point), whichever comes first.  The result is the water-loading increase up
+    to that point: the largest amount of water evaporative cooling should add.
+    Zero when cooling does not improve comfort at the current state.
+    """
+    if d_hi_cooling(t, x, pressure, dx_dt) >= 0.0:
+        return 0.0
+    t_wb = wet_bulb_temperature(t, x, pressure, dx_dt)
+
+    def hi_falling(t_path: float) -> bool:
+        x_path = x + dx_dt * (t_path - t)
+        return d_hi_cooling(t_path, x_path, pressure, dx_dt) < 0.0
+
+    # Coarse march keeps the *first* sign change; bisection then refines it.
+    step = 0.25
+    hi_end = t
+    lo_end = max(t - step, t_wb)
+    while hi_falling(lo_end):
+        if lo_end <= t_wb:
+            # + 0.0 normalises the -0.0 of already saturated air.
+            return dx_dt * (t_wb - t) + 0.0
+        hi_end = lo_end
+        lo_end = max(lo_end - step, t_wb)
+    for _ in range(50):
+        mid = 0.5 * (lo_end + hi_end)
+        if hi_falling(mid):
+            hi_end = mid
+        else:
+            lo_end = mid
+    return dx_dt * (0.5 * (lo_end + hi_end) - t)
