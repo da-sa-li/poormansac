@@ -7,7 +7,7 @@
 
 Evaporating water reduces dry-bulb temperatures, but increase humidity. This is called direct adiabatic cooling. It is not obvious whether evaporative coolers increases physiological well-being, because they produce sultry air.
 
-Steadman [^steadman1979] delivers a more holistic view on the human perception of warmth than the dry-bulb temperature by taking into account that sweating does not yield as much cooling when the air is moist.
+Steadman[^steadman1979] delivers a more holistic view on the human perception of warmth than the dry-bulb temperature by taking into account that sweating does not yield as much cooling when the air is moist.
 
 The goal of this project is to help assess in which circumstances direct adiabatic cooling is helpful or not.
 
@@ -35,7 +35,7 @@ This equation is the process line of the evaporation process of water.
 
 ## Physiological considerations
 
-The heat index $HI$ is a state variable and can be approximated with an equation by Lans P. Rothfusz [^rothfusz1990]:
+The heat index $HI$ is a state variable and can be approximated with an equation by Lans P. Rothfusz[^rothfusz1990]:
 
 $$HI = c_1 + c_2 T + c_3 \varphi + c_4 T \varphi + c_5 T^2 + c_6 \varphi^2 + c_7 T^2\varphi + c_8 T \varphi^2 + c_9 T^2 \varphi^2$$
 
