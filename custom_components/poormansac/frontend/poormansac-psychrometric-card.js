@@ -89,6 +89,36 @@ const _dHIdX = (t, x, p) => {
 // positive = cooling still beneficial; negative = cooling detrimental.
 const _dHICooling = (t, x, p) => _dHIdT(t, x, p) + _dHIdX(t, x, p) * processLineSlope(x);
 
+// dHI_cooling = 0 contour: for each temperature t in [tMin, tMax] (0.5 degC
+// steps), bisect over specific humidity x in (~0, qSat(t, p)] to find where
+// _dHICooling(t, x, p) crosses zero. Temperatures where _dHICooling has the
+// same sign at both bounds (no crossing in range) are skipped. Returns
+// {t, xg} points with xg in g/kg, ready for the X(t)/Y(xg) chart transforms.
+const _zeroLine = (tMin, tMax, pPa) => {
+  const points = [];
+  const xLo = 1e-6;
+  for (let t = tMin; t <= tMax + 1e-9; t += 0.5) {
+    const xHi = qSat(t, pPa);
+    if (xHi <= xLo) continue;
+    let lo = xLo;
+    let hi = xHi;
+    const fLo = _dHICooling(t, lo, pPa);
+    const fHi = _dHICooling(t, hi, pPa);
+    if ((fLo > 0) === (fHi > 0)) continue;
+    const loSign = fLo > 0;
+    for (let i = 0; i < 50; i++) {
+      const mid = (lo + hi) / 2;
+      if ((_dHICooling(t, mid, pPa) > 0) === loSign) {
+        lo = mid;
+      } else {
+        hi = mid;
+      }
+    }
+    points.push({ t, xg: ((lo + hi) / 2) * 1000 });
+  }
+  return points;
+};
+
 // Keys selectable for the state-point label, in display order.
 const POINT_LABEL_KEYS = ["t", "x", "hi", "rh"];
 
@@ -107,6 +137,7 @@ const I18N = {
     currentState: "Aktueller Zustand",
     coolingBeneficial: "Kühlung sinnvoll",
     coolingDetrimental: "Kühlung schädlich",
+    zeroLine: "Grenze der Kühlwirkung (dHI = 0)",
     unavailable: "Zustand nicht verfügbar",
   },
   en: {
@@ -116,6 +147,7 @@ const I18N = {
     currentState: "Current state",
     coolingBeneficial: "Cooling beneficial",
     coolingDetrimental: "Cooling detrimental",
+    zeroLine: "Cooling effectiveness limit",
     unavailable: "State unavailable",
   },
 };
@@ -247,6 +279,7 @@ class PoorMansACPsychrometricCard extends HTMLElement {
     const colPoint = "var(--primary-color, #03a9f4)";
     const colCoolBlu = "var(--primary-color, #03a9f4)"; // beneficial part of cooling line
     const colCoolRed = "var(--error-color, #db4437)";   // detrimental part
+    const colZero = "#9575cd"; // muted purple - dHI_cooling = 0 boundary
 
     const add = (tag, attrs, parent = svg) => {
       const el = document.createElementNS(SVG_NS, tag);
@@ -346,6 +379,28 @@ class PoorMansACPsychrometricCard extends HTMLElement {
       }
     }
 
+    // --- dHI_cooling = 0 contour: marks where adiabatic cooling stops being
+    // beneficial, independent of the current state point. Points outside the
+    // chart's x range break the path so it stays clipped to the plot area. ---
+    const zeroPts = _zeroLine(tMin, tMax, pPa);
+    if (zeroPts.length) {
+      let d = "";
+      let started = false;
+      for (const { t, xg } of zeroPts) {
+        if (xg < xMin || xg > xMax) {
+          started = false;
+          continue;
+        }
+        d += (started ? "L" : "M") + X(t).toFixed(1) + " " + Y(xg).toFixed(1) + " ";
+        started = true;
+      }
+      if (d) {
+        add("path", {
+          d, fill: "none", stroke: colZero, "stroke-width": 1.5, "stroke-dasharray": "3 3",
+        });
+      }
+    }
+
     // --- current state + isenthalpic cooling line ---
     const a = st ? st.attributes : {};
     const T = Number(a.temperature);
@@ -416,6 +471,9 @@ class PoorMansACPsychrometricCard extends HTMLElement {
     legend.push({ c: colPoint, dot: true, s: this._t("currentState") });
     legend.push({ c: colCoolBlu, dashArray: "5 3", s: this._t("coolingBeneficial") });
     legend.push({ c: colCoolRed, dashArray: "2 5", s: this._t("coolingDetrimental") });
+    if (zeroPts.length) {
+      legend.push({ c: colZero, dashArray: "3 3", s: this._t("zeroLine") });
+    }
     let ly = m.t + 12;
     for (const it of legend) {
       if (it.dot) {

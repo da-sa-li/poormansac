@@ -599,10 +599,12 @@ function chartColors() {
         bg: '#202020', grid: '#363636', axis: '#989898',
         rh: '#4a4a4a', sat: '#cccccc', rhlbl: '#7a7a7a',
         dot: '#37c8fd', path_yes: '#37c8fd', path_no: '#fd8f90',
+        zero: '#9575cd',
     } : {
         bg: '#ffffff', grid: '#e6e6e6', axis: '#5e5e5e',
         rh: '#d4d4d4', sat: '#4a4a4a', rhlbl: '#989898',
         dot: '#009ac7', path_yes: '#009ac7', path_no: '#b30532',
+        zero: '#9575cd',
     };
 }
 
@@ -612,6 +614,37 @@ function clearChart() {
     const dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     ctx.fillStyle = dark ? '#202020' : '#ffffff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
+}
+
+// dHI_cooling = 0 contour: mirrors _zeroLine from the Lovelace card
+// (poormansac-psychrometric-card.js). For each temperature t in [tMin, tMax]
+// (0.5°C steps), bisect over specific humidity x in (~0, qSat(t,p)] to find
+// where d_hi_cooling(t, x, p) crosses zero, using calc.py's own function via
+// Pyodide. Temperatures where d_hi_cooling has the same sign at both bounds
+// (no crossing in range) are skipped. Returns {t, xg} points with xg in g/kg.
+function zeroLinePoints(tMin, tMax, pPa) {
+    const points = [];
+    const xLo = 1e-6;
+    for (let t = tMin; t <= tMax + 1e-9; t += 0.5) {
+        const xHi = specific_humidity(t, 100, pPa);
+        if (xHi <= xLo) continue;
+        let lo = xLo;
+        let hi = xHi;
+        const fLo = d_hi_cooling(t, lo, pPa);
+        const fHi = d_hi_cooling(t, hi, pPa);
+        if ((fLo > 0) === (fHi > 0)) continue;
+        const loSign = fLo > 0;
+        for (let i = 0; i < 50; i++) {
+            const mid = (lo + hi) / 2;
+            if ((d_hi_cooling(t, mid, pPa) > 0) === loSign) {
+                lo = mid;
+            } else {
+                hi = mid;
+            }
+        }
+        points.push({ t, xg: ((lo + hi) / 2) * 1000 });
+    }
+    return points;
 }
 
 function drawChart(t_s, x_s, p_pa, dhi) {
@@ -678,6 +711,43 @@ function drawChart(t_s, x_s, p_pa, dhi) {
             } else {
                 ctx.textAlign = 'center';
                 ctx.fillText(label, lx, ly - 5);
+            }
+        }
+    }
+
+    // dHI_cooling = 0 contour — mirrors the Lovelace card's _zeroLine: marks
+    // where adiabatic cooling stops being beneficial, independent of the
+    // current state point. Points outside [0, X_MAX] break the path so it
+    // stays clipped to the plot area.
+    const zeroPts = zeroLinePoints(CHART.T_MIN, CHART.T_MAX, p_pa);
+    if (zeroPts.length) {
+        ctx.strokeStyle = C.zero;
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([3, 3]);
+        ctx.beginPath();
+        let started = false;
+        let lastT = null, lastXg = null;
+        for (const { t, xg } of zeroPts) {
+            if (xg < 0 || xg > X_MAX) { started = false; continue; }
+            const cx = toX(t), cy = toY(xg);
+            if (!started) { ctx.moveTo(cx, cy); started = true; }
+            else ctx.lineTo(cx, cy);
+            lastT = t; lastXg = xg;
+        }
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // legend label, placed in-line like the RH isoline labels above
+        if (lastT !== null) {
+            const lx = toX(lastT), ly = toY(lastXg);
+            ctx.fillStyle = C.zero;
+            ctx.font = '10px sans-serif';
+            if (lx > PAD.l + CW - 22) {
+                ctx.textAlign = 'left';
+                ctx.fillText('dHI=0', lx + 3, ly + 3);
+            } else {
+                ctx.textAlign = 'center';
+                ctx.fillText('dHI=0', lx, ly - 5);
             }
         }
     }
