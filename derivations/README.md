@@ -23,7 +23,8 @@ $$ p = \varrho R_s T $$
 $$ \varrho = \frac{p}{R_s T} $$
 
 The specific heat capacity of air is:
-$$ c_p = (1-x) \frac{7}{2} \frac{R}{M_{air}} + x \cdot 4 \frac{R}{M_{water}} $$
+
+$$ c_p = (1-x) \frac{7}{2} \frac{R}{M_{air}} + 4 x \frac{R}{M_{water}} $$
 
 The evaporation of water is an isenthalpic process. The first law of thermodynamics yields the following equations:
 
