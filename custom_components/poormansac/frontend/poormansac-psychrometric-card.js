@@ -4,68 +4,90 @@
  * Buildless vanilla custom element, loaded as an ES module via
  * frontend.add_extra_js_url -> <script type="module">. No build step, no Lit.
  *
- * Geometry note: eSat()/wSat() below are a deliberate, minimal port of
- * calc.saturation_vapour_pressure() and calc.mixing_ratio() (SI units) from the
- * Python side - only the chart's bounding geometry. The comfort physics
- * (heat_index, d_hi) is NOT duplicated here; it is read from the entity's
- * attributes. calc.py remains the single source of truth for the decision.
+ * Geometry note: eSat()/qSat() below are a deliberate, minimal port of
+ * calc.saturation_vapour_pressure() and calc.specific_humidity() (SI units)
+ * from the Python side - only the chart's bounding geometry. The comfort
+ * physics (heat_index, d_hi) is NOT duplicated here; it is read from the
+ * entity's attributes. calc.py remains the single source of truth for the
+ * decision.
  */
 
 const EPSILON = 0.621945; // == calc._EPSILON (ratio of molar masses water/air)
 
+// Specific gas constants and latent heat used by the moist-air closed forms,
+// mirroring calc.py (_R_DRY, _R_VAP, _DHV).
+const R_DRY = 8.314 / 0.028949;
+const R_VAP = 8.314 / 0.01802;
+const DHV = 2441.0 * 1000.0;
+const rMoist = (x) => R_DRY * (1 - x) + R_VAP * x;
+const cpMoist = (x) => (1 - x) * 3.5 * R_DRY + x * 4.0 * R_VAP;
+// Isenthalpic process-line slope dx/dT = -cp(x)/L (== calc.process_line_slope).
+const processLineSlope = (x) => -cpMoist(x) / DHV;
+
 // Saturation vapour pressure over water in Pa from temperature in degC (Magnus).
 const eSat = (t) => 611.2 * Math.exp((17.62 * t) / (243.12 + t));
 
-// Mixing ratio in kg_water/kg_dry_air at relative humidity rh (0..1) from
-// T (degC) and pressure (Pa). rh = 1 gives the saturation mixing ratio.
-const wRH = (t, p, rh) => {
+// Specific humidity (water mass fraction) at relative humidity rh (0..1) from
+// T (degC) and pressure (Pa). rh = 1 gives the saturation value.
+const qRH = (t, p, rh) => {
   const e = rh * eSat(t);
-  return (EPSILON * e) / (p - e);
+  return (EPSILON * e) / (p - e * (1 - EPSILON));
 };
 
-// Saturation mixing ratio in kg_water/kg_dry_air from T (degC) and pressure (Pa).
-const wSat = (t, p) => wRH(t, p, 1);
+// Saturation specific humidity from T (degC) and pressure (Pa).
+const qSat = (t, p) => qRH(t, p, 1);
 
-// Relative humidity (0..1) from mixing ratio w (kg/kg), T (degC) and pressure
-// (Pa). Inverts wRH: e = p*w/(EPSILON + w), then rh = e / eSat(t).
-const rhFromW = (w, t, p) => (p * w) / (EPSILON + w) / eSat(t);
+// Relative humidity (0..1) from specific humidity q (kg/kg), T (degC) and
+// pressure (Pa). Inverts qRH: e = p*q/(EPSILON + q*(1-EPSILON)), rh = e/eSat(t).
+const rhFromQ = (q, t, p) => (p * q) / (EPSILON + q * (1 - EPSILON)) / eSat(t);
 
-// Partial derivatives of the heat index polynomial: exact ports of calc.py
-// d_hi_d_t / d_hi_d_x, needed to locate the sign-change optimum along the
-// cooling path in the frontend without an extra round-trip to the backend.
-// Pressure p (Pa) enters through the moisture term, matching the SI per-pascal
-// coefficients in calc.py.
+// Partial derivatives of the heat index: exact ports of the expanded closed
+// forms in calc.py d_hi_d_t / d_hi_d_x (notebook Out[10]/Out[11]), needed to
+// locate the sign-change optimum along the cooling path in the frontend without
+// an extra round-trip to the backend. x is the specific humidity, p (Pa) enters
+// through the moisture term, and the moist-air gas constant r = R(x) carries the
+// x-dependent air density; the RH-fit exponential runs over Kelvin tk.
 const _dHIdT = (t, x, p) => {
-  const e1 = Math.exp(-0.0533 * t);
-  const e2 = Math.exp(-0.1066 * t);
   const tk = 273.15 + t;
   const tk2 = tk * tk;
   const tk3 = tk2 * tk;
+  const e1 = Math.exp(-0.0524 * tk);
+  const e2 = Math.exp(-0.1048 * tk);
+  const r = rMoist(x);
+  const r2 = r * r;
   const p2 = p * p;
   const x2 = x * x;
+  const t2 = t * t;
   return (
-    1.61139 - 0.0246162 * t +
-    e1 * p * x * ((-134.599 + 8.40997 * t - 0.1273 * t * t) / tk2 +
-                  (-15.58410 + 0.7028514 * t - 0.0067851 * t * t) / tk) +
-    e2 * p2 * x2 * ((108.8238 - 4.80658 * t + 0.0237328 * t * t) / tk3 +
-                    (8.203599 - 0.2799235 * t + 0.00126496 * t * t) / tk2)
+    1.61139411 - 0.024616188 * t +
+    (e2 * p2 * x2 * (1.9541343848997597e19 - 8.63111827332e17 * t + 4.2616637244e15 * t2)) / (tk3 * r2) +
+    (e2 * p2 * x2 * (1.455522331353474e18 - 4.94887234765968e16 * t + 2.2331117915856e14 * t2)) / (tk2 * r2) +
+    (e1 * p * x * (-5.703721011e10 + 3.5637704595e9 * t - 5.3944143480000004e7 * t2)) / (tk2 * r) +
+    (e1 * p * x * (-6.552520269264e9 + 2.946298590378e8 * t - 2.826673118352e6 * t2)) / (tk * r)
   );
 };
 const _dHIdX = (t, x, p) => {
-  const e1 = Math.exp(-0.0533 * t);
-  const e2 = Math.exp(-0.1066 * t);
   const tk = 273.15 + t;
   const tk2 = tk * tk;
+  const e1 = Math.exp(-0.0524 * tk);
+  const e2 = Math.exp(-0.1048 * tk);
+  const r = rMoist(x);
+  const r2 = r * r;
+  const r3 = r2 * r;
   const p2 = p * p;
+  const x2 = x * x;
+  const t2 = t * t;
   return (
-    (e1 * p * (134.599 - 8.40997 * t + 0.1273 * t * t)) / tk -
-    (e2 * p2 * x * (108.8238 - 4.80658 * t + 0.0237328 * t * t)) / tk2
+    (e2 * p2 * x2 * (3.40374110852651e21 - 1.5033813593613536e20 * t + 7.423030944824483e17 * t2)) / (tk2 * r3) +
+    (e2 * p2 * x * (-1.9541343848997597e19 + 8.63111827332e17 * t - 4.2616637244e15 * t2)) / (tk2 * r2) +
+    (e1 * p * x * (-9.934828344828984e12 + 6.20742980016433e11 * t - 9.396073276533997e9 * t2)) / (tk * r2) +
+    (e1 * p * (5.703721011e10 - 3.5637704595e9 * t + 5.3944143480000004e7 * t2)) / (tk * r)
   );
 };
-// Total differential along the isenthalpic cooling path (dxdt in kg/kg/K).
-// Positive = cooling still beneficial; negative = cooling detrimental.
-// Sign convention: this is -(d_hi_cooling with delta_t=-1 from calc.py).
-const _dHICooling = (t, x, dxdt, p) => _dHIdT(t, x, p) + _dHIdX(t, x, p) * dxdt;
+// dHI/dT along the local isenthalpic process line (slope = processLineSlope(x)).
+// Sign convention: this is -(d_hi_cooling with delta_t=-1 from calc.py), so
+// positive = cooling still beneficial; negative = cooling detrimental.
+const _dHICooling = (t, x, p) => _dHIdT(t, x, p) + _dHIdX(t, x, p) * processLineSlope(x);
 
 // Keys selectable for the state-point label, in display order.
 const POINT_LABEL_KEYS = ["t", "x", "hi", "rh"];
@@ -105,7 +127,7 @@ class PoorMansACPsychrometricCard extends HTMLElement {
       for (const id of Object.keys(hass.states)) {
         if (!id.startsWith("binary_sensor.")) continue;
         const a = hass.states[id].attributes || {};
-        if ("temperature" in a && "mixing_ratio" in a && "dx_dt" in a) {
+        if ("temperature" in a && "specific_humidity" in a && "dx_dt" in a) {
           entity = id;
           break;
         }
@@ -259,7 +281,7 @@ class PoorMansACPsychrometricCard extends HTMLElement {
     const pPa = Number.isFinite(pHpa) && pHpa > 0 ? pHpa * 100 : 101325;
 
     // --- constant relative-humidity curves, clamped to the chart bounds ---
-    // Each curve x(T) = wRH(T, p, rh) rises monotonically with T, so it enters
+    // Each curve x(T) = qRH(T, p, rh) rises monotonically with T, so it enters
     // the plot area once through the bottom edge (x = xMin) and leaves once
     // through the top edge (x = xMax); both crossings are interpolated so the
     // visible path stays inside [xMin, xMax]. The returned point is where the
@@ -271,7 +293,7 @@ class PoorMansACPsychrometricCard extends HTMLElement {
       let endT = null;
       let endX = null;
       for (let t = tMin; t <= tMax + 1e-9; t += 1) {
-        const xg = wRH(t, pPa, rh) * 1000;
+        const xg = qRH(t, pPa, rh) * 1000;
         // Entering from below the bottom edge: start the path at xMin.
         if (pT !== null && pX < xMin && xg >= xMin) {
           const f = (xMin - pX) / (xg - pX);
@@ -327,8 +349,8 @@ class PoorMansACPsychrometricCard extends HTMLElement {
     // --- current state + isenthalpic cooling line ---
     const a = st ? st.attributes : {};
     const T = Number(a.temperature);
-    const xg = Number(a.mixing_ratio); // g/kg
-    const dxdt = Number(a.dx_dt); // kg/kg per K (SI)
+    const xg = Number(a.specific_humidity); // g/kg
+    const dxdt = Number(a.dx_dt); // kg/kg per K (SI), slope at current state
     const havePoint = Number.isFinite(T) && Number.isFinite(xg);
 
     if (havePoint) {
@@ -346,7 +368,7 @@ class PoorMansACPsychrometricCard extends HTMLElement {
             add("line", { x1: X(seg.tOpt), y1: Y(xgOpt), x2: X(seg.t), y2: Y(seg.x * 1000),
               stroke: colCoolRed, ...dashRed });
           } else {
-            const beneficial = _dHICooling(T, xg / 1000, dxdt, pPa) >= 0;
+            const beneficial = _dHICooling(T, xg / 1000, pPa) >= 0;
             add("line", { x1: X(T), y1: Y(xg), x2: X(seg.t), y2: Y(seg.x * 1000),
               stroke: beneficial ? colCoolBlu : colCoolRed,
               ...(beneficial ? dashBlu : dashRed) });
@@ -360,7 +382,7 @@ class PoorMansACPsychrometricCard extends HTMLElement {
       // Label content is selected via point_label; each value is dropped when
       // it is not available, and the whole label is skipped when none remain.
       const hi = Number(a.heat_index);
-      const rh = rhFromW(xg / 1000, T, pPa);
+      const rh = rhFromQ(xg / 1000, T, pPa);
       const parts = {
         t: T.toFixed(1) + " °C",
         x: xg.toFixed(1) + " g/kg",
@@ -418,27 +440,27 @@ class PoorMansACPsychrometricCard extends HTMLElement {
   _coolingLine(t0, x0, dxdt, p, tFloor, xCeil) {
     const xLine = (t) => x0 + dxdt * (t - t0);
     // Already at/above saturation: evaporative cooling can't help; collapse.
-    if (xLine(t0) >= wSat(t0, p)) return { t: t0, x: xLine(t0), tOpt: null };
+    if (xLine(t0) >= qSat(t0, p)) return { t: t0, x: xLine(t0), tOpt: null };
     let t = t0;
     const step = 0.1;
-    let prevDHI = _dHICooling(t0, x0, dxdt, p);
+    let prevDHI = _dHICooling(t0, x0, p);
     let tOpt = null;
     for (let i = 0; i < 2000; i++) {
       const tn = t - step;
       const xn = xLine(tn);
-      const currDHI = _dHICooling(tn, xn, dxdt, p);
+      const currDHI = _dHICooling(tn, xn, p);
       // Detect the first beneficial → detrimental crossing (+ → −).
       if (tOpt === null && prevDHI > 0 && currDHI <= 0) {
         const f = prevDHI / (prevDHI - currDHI); // linear interpolation fraction
         tOpt = t - f * step;
       }
-      if (xn >= wSat(tn, p)) {
-        // Crossing in [tn, t]: interpolate the residual (line - wSat) to zero so
+      if (xn >= qSat(tn, p)) {
+        // Crossing in [tn, t]: interpolate the residual (line - qSat) to zero so
         // the endpoint lands exactly on the saturation curve, not above it.
-        const r = xLine(t) - wSat(t, p);
-        const rn = xn - wSat(tn, p);
+        const r = xLine(t) - qSat(t, p);
+        const rn = xn - qSat(tn, p);
         const tc = t + (r / (r - rn)) * (tn - t);
-        return { t: tc, x: wSat(tc, p), tOpt };
+        return { t: tc, x: qSat(tc, p), tOpt };
       }
       if (tn <= tFloor || xn >= xCeil) {
         // Interpolate the exact boundary crossing rather than clamping, so the

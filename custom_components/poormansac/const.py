@@ -21,13 +21,10 @@ DEFAULT_THRESHOLD = 0.0
 # allowed to flip again. 0 = disabled (immediate flips).
 DEFAULT_MIN_HOLD_TIME = 0
 
-# Slope of the isenthalpic process line dx/dT in kg_water/(kg_air*K) (SI unit,
-# matching the mixing ratio x, so it feeds the calc functions directly without
-# conversion). Negative: as the air cools (dT < 0) the water loading rises
-# (dx > 0). First-order approximation -cp/L from the adiabatic energy balance.
-DEFAULT_DX_DT = -0.00041
+# Note: the isenthalpic process-line slope dx/dT is no longer a fixed constant.
+# It is the x-dependent value -cp(x)/L derived in calc.process_line_slope.
 
-# Ambient pressure in hectopascals used when computing the mixing ratio x.
+# Ambient pressure in hectopascals used when computing the specific humidity x.
 # Acts as the fallback whenever no pressure sensor is configured or the
 # configured sensor is unavailable.
 DEFAULT_PRESSURE_HPA = 1013.25
