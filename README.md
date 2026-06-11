@@ -22,7 +22,7 @@ kg_water / kg_moist_air, using the Magnus formula for the saturation vapour
 pressure) and evaluates the total differential of the heat index along the
 isenthalpic evaporative-cooling path:
 
-```
+```text
 dHI = (∂HI/∂T)·dT + (∂HI/∂x)·dx
 ```
 

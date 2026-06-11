@@ -368,7 +368,7 @@ class PoorMansACPsychrometricCard extends HTMLElement {
             add("line", { x1: X(seg.tOpt), y1: Y(xgOpt), x2: X(seg.t), y2: Y(seg.x * 1000),
               stroke: colCoolRed, ...dashRed });
           } else {
-            const beneficial = _dHICooling(T, xg / 1000, pPa) >= 0;
+            const beneficial = _dHICooling(T, xg / 1000, pPa) > 0;
             add("line", { x1: X(T), y1: Y(xg), x2: X(seg.t), y2: Y(seg.x * 1000),
               stroke: beneficial ? colCoolBlu : colCoolRed,
               ...(beneficial ? dashBlu : dashRed) });
