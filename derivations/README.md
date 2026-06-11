@@ -55,6 +55,6 @@ $$ \frac{\mathrm{d} HI}{\mathrm{d} T} = \frac{\partial HI}{\partial T} - \frac{\
 
 Computing this expression yields the total differential of the heat index function. A negative result indicates that evaporating water moves the climate towards more comfortable conditions.
 
-## Literature
+## References
 [^steadman1979]: Steadman, R. G. (1979). *The Assessment of Sultriness. Part I: A Temperature-Humidity Index Based on Human Physiology and Clothing Science.* Journal of Applied Meteorology, 18(7), 861–873. DOI: [10.1175/1520-0450(1979)018<0861:TAOSPI>2.0.CO;2](https://doi.org/10.1175/1520-0450(1979)018%3C0861:TAOSPI%3E2.0.CO;2)
 [^rothfusz1990]: Rothfusz, L. P. (1990-07-01). *The Heat Index "Equation" (or, More Than You Ever Wanted to Know About Heat Index).* Technical Attachment SR 90-23, Scientific Services Division, NWS Southern Region Headquarters, Fort Worth, TX.
