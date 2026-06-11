@@ -40,8 +40,8 @@
       "absolute_humidity": {
         "name": "Absolute humidity"
       },
-      "mixing_ratio": {
-        "name": "Water loading"
+      "specific_humidity": {
+        "name": "Specific humidity"
       },
       "d_hi": {
         "name": "Heat index differential"

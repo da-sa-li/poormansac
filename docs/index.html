@@ -401,7 +401,7 @@
   <div class="card">
     <div class="card-header">Ambient state</div>
     <div class="card-body">
-      <div class="row"><span class="lbl">Mixing ratio x</span>    <span class="val" id="x_gkg">—</span></div>
+      <div class="row"><span class="lbl">Specific humidity x</span> <span class="val" id="x_gkg">—</span></div>
       <div class="row"><span class="lbl">Absolute humidity</span> <span class="val" id="abs_hum">—</span></div>
       <div class="row"><span class="lbl">Heat index HI</span>     <span class="val" id="hi">—</span></div>
     </div>
@@ -418,7 +418,7 @@
 
   <footer>
     <a href="https://github.com/da-sa-li/poormansac">da-sa-li/poormansac</a> ·
-    model constants: dx/dT = −0.00041 kg/(kg·K), threshold = 0
+    model: dx/dT = −cp(x)/L (isenthalpic process line), threshold = 0
   </footer>
 
 </main>
@@ -433,9 +433,9 @@
 // loads the integration's own calc.py and const.py and runs them with CPython
 // compiled to WebAssembly.  There is a single source of truth and therefore no
 // parity test.  These bindings are populated once Pyodide has finished loading.
-let saturation_vapour_pressure, mixing_ratio, absolute_humidity,
-    heat_index, d_hi_d_t, d_hi_d_x;
-let DX_DT, DELTA_T, THRESHOLD;
+let saturation_vapour_pressure, specific_humidity, absolute_humidity,
+    heat_index, d_hi_d_t, d_hi_d_x, d_hi_cooling, process_line_slope;
+let DELTA_T, THRESHOLD;
 
 // calc.py and const.py live outside the published docs/ root, so try the
 // repository-relative path first (works when a local server is started from the
@@ -471,16 +471,18 @@ async function initPyodide() {
 
     const g = pyodide.globals;
     saturation_vapour_pressure = g.get('saturation_vapour_pressure');
-    mixing_ratio               = g.get('mixing_ratio');
+    specific_humidity          = g.get('specific_humidity');
     absolute_humidity          = g.get('absolute_humidity');
     heat_index                 = g.get('heat_index');
     d_hi_d_t                   = g.get('d_hi_d_t');
     d_hi_d_x                   = g.get('d_hi_d_x');
+    d_hi_cooling               = g.get('d_hi_cooling');
+    process_line_slope         = g.get('process_line_slope');
 
-    DX_DT     = g.get('DEFAULT_DX_DT');      // const.py model constant
     THRESHOLD = g.get('DEFAULT_THRESHOLD');  // const.py model constant
-    // DELTA_T is the default cooling step of d_hi_cooling, sourced straight from
-    // calc.py rather than duplicated here.
+    // The isenthalpic slope dx/dT is no longer a constant; it is the
+    // x-dependent calc.process_line_slope. DELTA_T is the default cooling step
+    // of d_hi_cooling, sourced straight from calc.py rather than duplicated here.
     DELTA_T = pyodide.runPython(
         "__import__('inspect').signature(d_hi_cooling).parameters['delta_t'].default"
     );
@@ -540,16 +542,17 @@ function compute() {
         setInvalidState('Vapour pressure exceeds ambient pressure — unphysical combination.');
         return;
     }
-    const x   = mixing_ratio(t, rh, p);
+    const x   = specific_humidity(t, rh, p);
     const ah  = absolute_humidity(t, rh);
     const hi  = heat_index(t, x, p);
     const ddt = d_hi_d_t(t, x, p);
     const ddx = d_hi_d_x(t, x, p);
 
-    const dx      = DX_DT * DELTA_T;   // Δx along isenthalpic path
+    const dxdt    = process_line_slope(x); // x-dependent isenthalpic slope dx/dT
+    const dx      = dxdt * DELTA_T;    // Δx along isenthalpic path
     const term_t  = ddt * DELTA_T;     // temperature contribution to ΔHI
     const term_x  = ddx * dx;          // moisture contribution to ΔHI
-    const dhi     = term_t + term_x;
+    const dhi     = term_t + term_x;   // == d_hi_cooling(t, x, p)
 
     // ── ambient state ──
     document.getElementById('x_gkg').textContent   = (x   * 1000).toFixed(2) + ' g/kg';
@@ -654,7 +657,7 @@ function drawChart(t_s, x_s, p_pa, dhi) {
         ctx.lineWidth   = isSat ? 1.5 : 0.75;
         let first = true, lastT = null, lastXg = null;
         for (let t = CHART.T_MIN; t <= CHART.T_MAX + 0.01; t += 0.25) {
-            const xg = mixing_ratio(t, rh, p_pa) * 1000;
+            const xg = specific_humidity(t, rh, p_pa) * 1000;
             if (xg > X_MAX) break;
             const cx = toX(t), cy = toY(xg);
             if (first) { ctx.moveTo(cx, cy); first = false; }
@@ -680,16 +683,19 @@ function drawChart(t_s, x_s, p_pa, dhi) {
     }
 
     // isenthalpic cooling path — ends at the saturation curve, colored per local dhi sign
+    // The straight line uses the local process-line slope at the starting state,
+    // matching calc.wet_bulb_temperature; d_hi_cooling re-evaluates the local
+    // slope at each point along it.
+    const dxdt0 = process_line_slope(x_s);
     const pts = [];  // [cx, cy, color]
     for (let dt = 0; dt >= -60; dt -= 0.1) {
         const tp = t_s + dt;
-        const xp_kgkg = x_s + DX_DT * dt;
+        const xp_kgkg = x_s + dxdt0 * dt;
         const xp = xp_kgkg * 1000;  // g/kg
         if (tp < CHART.T_MIN || xp < 0 || xp > X_MAX) break;
-        const dhi_p = d_hi_d_t(tp, xp_kgkg, p_pa) * DELTA_T
-                    + d_hi_d_x(tp, xp_kgkg, p_pa) * DX_DT * DELTA_T;
+        const dhi_p = d_hi_cooling(tp, xp_kgkg, p_pa);
         pts.push([toX(tp), toY(xp), dhi_p < THRESHOLD ? C.path_yes : C.path_no]);
-        if (xp_kgkg >= mixing_ratio(tp, 100, p_pa)) break;
+        if (xp_kgkg >= specific_humidity(tp, 100, p_pa)) break;
     }
     if (pts.length >= 2) {
         // Draw in batches of consecutive same-color segments

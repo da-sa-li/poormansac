@@ -40,8 +40,8 @@
       "absolute_humidity": {
         "name": "Absolute Luftfeuchtigkeit"
       },
-      "mixing_ratio": {
-        "name": "Wasserbeladung"
+      "specific_humidity": {
+        "name": "Spezifische Feuchte"
       },
       "wet_bulb_temperature": {
         "name": "Kühlgrenztemperatur"

@@ -48,12 +48,12 @@ SENSORS: tuple[PoorMansACSensorDescription, ...] = (
         value_fn=lambda data: data.absolute_humidity,
     ),
     PoorMansACSensorDescription(
-        key="mixing_ratio",
-        translation_key="mixing_ratio",
+        key="specific_humidity",
+        translation_key="specific_humidity",
         native_unit_of_measurement="g/kg",
         state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=2,
-        value_fn=lambda data: data.mixing_ratio,
+        value_fn=lambda data: data.specific_humidity,
     ),
     PoorMansACSensorDescription(
         key="wet_bulb_temperature",

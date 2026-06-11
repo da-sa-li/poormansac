@@ -17,17 +17,18 @@ along the adiabatic cooling path as the decision criterion.
 ## What it computes
 
 From temperature, relative humidity and ambient pressure the integration
-derives the **water loading** `x` (mixing ratio, kg_water / kg_dry_air, using
-the Magnus formula for the saturation vapour pressure) and evaluates the total
-differential of the heat index along the isenthalpic evaporative-cooling path:
+derives the **specific humidity** `x` (water mass fraction,
+kg_water / kg_moist_air, using the Magnus formula for the saturation vapour
+pressure) and evaluates the total differential of the heat index along the
+isenthalpic evaporative-cooling path:
 
-```
+```text
 dHI = (∂HI/∂T)·dT + (∂HI/∂x)·dx
 ```
 
 `dT` and `dx` follow from the energy balance of the adiabatic process
-(sensible heat released = latent heat absorbed), which fixes the slope
-`dx/dT ≈ −cp/L`. `dHI` is reported as the heat-index change per 1 K of
+(sensible heat released = latent heat absorbed), which fixes the x-dependent
+slope `dx/dT = −cp(x)/L`. `dHI` is reported as the heat-index change per 1 K of
 evaporative cooling. **`dHI < 0` ⇒ cooling lowers the heat index ⇒
 recommended.**
 
@@ -37,7 +38,7 @@ exposed as a sensor, but it is not part of the decision criterion.
 ## Entities
 
 - **binary_sensor** – `Adiabatic cooling recommended`
-- **sensor** – `Heat index`, `Absolute humidity`, `Water loading`, `Wet-bulb
+- **sensor** – `Heat index`, `Absolute humidity`, `Specific humidity`, `Wet-bulb
   temperature` (cooling limit along the isenthalpic path), `Wet-bulb
   depression` (maximum achievable evaporative cooling, K), `Optimal water
   uptake` (water that evaporative cooling should add at most: up to the
@@ -92,11 +93,11 @@ entity: binary_sensor.poor_man_s_ac_adiabatic_cooling_recommended
 #              # the top one is the 100 % saturation curve, 0 % is never drawn,
 #              # and 0 hides them entirely
 # point_label: [t, x, hi]   # which values to show next to the state point;
-#                           # any of t (temperature), x (mixing ratio),
+#                           # any of t (temperature), x (specific humidity),
 #                           # hi (heat index), rh (rel. humidity); [] hides it
 ```
 
 The card reads everything it needs from the binary sensor's attributes
-(`temperature`, `mixing_ratio`, `pressure`, `dx_dt`) and recomputes only the
+(`temperature`, `specific_humidity`, `pressure`, `dx_dt`) and recomputes only the
 relative-humidity curves, using the same effective pressure the integration used
 for `x`.

@@ -13,7 +13,7 @@
       "absolute_humidity": {
         "default": "mdi:water"
       },
-      "mixing_ratio": {
+      "specific_humidity": {
         "default": "mdi:water-percent"
       },
       "wet_bulb_temperature": {

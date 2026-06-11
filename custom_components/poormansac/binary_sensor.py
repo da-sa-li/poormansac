@@ -44,7 +44,7 @@ class CoolingRecommendedBinarySensor(PoorMansACEntity, BinarySensorEntity):
             "absolute_humidity": data.absolute_humidity,
             "temperature": data.temperature,  # °C
             "humidity": data.humidity,  # %
-            "mixing_ratio": data.mixing_ratio,  # g_water/kg_air
+            "specific_humidity": data.specific_humidity,  # g_water/kg_moist_air
             "pressure": pressure_hpa,  # hPa (effective pressure used for x)
-            "dx_dt": self.coordinator.dx_dt,  # kg_water/(kg_air*K), SI slope
+            "dx_dt": self.coordinator.dx_dt,  # kg_water/(kg_air*K), SI slope at current state
         }

@@ -36,7 +36,6 @@ from .const import (
     CONF_PRESSURE_ENTITY,
     CONF_TEMPERATURE_ENTITY,
     CONF_THRESHOLD,
-    DEFAULT_DX_DT,
     DEFAULT_MIN_HOLD_TIME,
     DEFAULT_PRESSURE_HPA,
     DEFAULT_THRESHOLD,
@@ -54,13 +53,16 @@ class PoorMansACData:
     humidity: float | None = None
     pressure: float | None = None  # effective ambient pressure in Pa (SI)
     absolute_humidity: float | None = None
-    mixing_ratio: float | None = None
+    # Specific humidity (water mass fraction) exposed as g_water/kg_moist_air.
+    specific_humidity: float | None = None
     heat_index: float | None = None
     wet_bulb_temperature: float | None = None
     # Wet-bulb depression t - t_wb in K: the maximum achievable evaporative cooling.
     wet_bulb_depression: float | None = None
     # Water uptake to the heat-index minimum along the isenthalpic path, g/kg.
     optimal_water_uptake: float | None = None
+    # Isenthalpic process-line slope dx/dT at the current state, kg_water/(kg_air*K) (SI).
+    dx_dt: float | None = None
     d_hi_dt: float | None = None
     d_hi_dx: float | None = None
     d_hi: float | None = None
@@ -79,7 +81,7 @@ class PoorMansACCoordinator(DataUpdateCoordinator[PoorMansACData]):
         
         Initializes:
             - Reads and stores temperature, humidity, and optional pressure entity IDs from `entry.data`.
-            - Loads threshold and model constant (`_dx_dt`) from `entry.options` / defaults.
+            - Loads the threshold from `entry.options` / defaults.
             - Converts fallback pressure from hPa to Pa and computes `_min_hold_time`.
             - Sets up hysteresis state variables: `_cooling_recommended`, `_cooling_recommended_since`, and `_pending_flip_unsub`.
         """
@@ -91,8 +93,6 @@ class PoorMansACCoordinator(DataUpdateCoordinator[PoorMansACData]):
         # sensor; otherwise the static fallback below is used.
         self._pressure_entity = entry.data.get(CONF_PRESSURE_ENTITY)
         self._threshold = entry.options.get(CONF_THRESHOLD, DEFAULT_THRESHOLD)
-        # Internal model constant already in SI (kg_water/(kg_air*K)); used directly.
-        self._dx_dt = DEFAULT_DX_DT
         # Boundary conversion: the human-facing hPa fallback -> Pa for the math.
         self._pressure_fallback = DEFAULT_PRESSURE_HPA * 100.0
         # Hysteresis: minimum time the cooling_recommended state must hold
@@ -105,9 +105,13 @@ class PoorMansACCoordinator(DataUpdateCoordinator[PoorMansACData]):
         self._pending_flip_unsub: CALLBACK_TYPE | None = None
 
     @property
-    def dx_dt(self) -> float:
-        """Slope dx/dT of the isenthalpic cooling line, kg_water/(kg_air*K) (SI)."""
-        return self._dx_dt
+    def dx_dt(self) -> float | None:
+        """Slope dx/dT of the isenthalpic cooling line at the current state.
+
+        Derived from the first law as ``-cp(x)/L`` (``calc.process_line_slope``),
+        in kg_water/(kg_air*K) (SI). ``None`` until the first successful compute.
+        """
+        return self.data.dx_dt if self.data else None
 
     async def async_initialize(self) -> None:
         """Subscribe to the source entities and compute the initial state."""
@@ -129,7 +133,7 @@ class PoorMansACCoordinator(DataUpdateCoordinator[PoorMansACData]):
         Produce the coordinator's current PoorMansACData snapshot.
         
         Returns:
-            PoorMansACData: Computed AC-related values (temperature, humidity, effective pressure, absolute_humidity, mixing_ratio, heat_index, derivatives, and cooling_recommended). If temperature or humidity cannot be read, those fields (and derived values) may be None.
+            PoorMansACData: Computed AC-related values (temperature, humidity, effective pressure, absolute_humidity, specific_humidity, heat_index, derivatives, and cooling_recommended). If temperature or humidity cannot be read, those fields (and derived values) may be None.
         """
         return self._compute()
 
@@ -263,18 +267,19 @@ class PoorMansACCoordinator(DataUpdateCoordinator[PoorMansACData]):
         """
         Compute derived air-conditioning metrics from the configured temperature and humidity sensors.
         
-        If either temperature or relative-humidity readings are unavailable, returns a PoorMansACData containing only those raw values. Otherwise returns a PoorMansACData populated with ambient pressure, absolute humidity (g/m³), mixing ratio (g_water/kg_air), heat index, partial derivatives of the heat index (d_hi/dt and d_hi/dx), the cooling-directed heat-index derivative (d_hi), and the debounced `cooling_recommended` boolean.
-         
+        If either temperature or relative-humidity readings are unavailable, returns a PoorMansACData containing only those raw values. Otherwise returns a PoorMansACData populated with ambient pressure, absolute humidity (g/m³), specific humidity (g_water/kg_moist_air), heat index, partial derivatives of the heat index (d_hi/dt and d_hi/dx), the cooling-directed heat-index derivative (d_hi), and the debounced `cooling_recommended` boolean.
+
         Returns:
             PoorMansACData: Data object containing computed fields:
                 - temperature: source temperature reading
                 - humidity: source relative-humidity reading
                 - pressure: estimated ambient pressure in Pa
                 - absolute_humidity: absolute humidity in g/m³
-                - mixing_ratio: mixing ratio exposed as g_water/kg_air
+                - specific_humidity: specific humidity exposed as g_water/kg_moist_air
                 - heat_index: computed heat index
+                - dx_dt: isenthalpic process-line slope at the current state (SI)
                 - d_hi_dt: partial derivative of heat index with respect to temperature
-                - d_hi_dx: partial derivative of heat index with respect to mixing ratio
+                - d_hi_dx: partial derivative of heat index with respect to specific humidity
                 - d_hi: heat-index cooling derivative used for decisioning
                 - cooling_recommended: boolean indicating whether cooling is recommended after hysteresis
         """
@@ -284,21 +289,22 @@ class PoorMansACCoordinator(DataUpdateCoordinator[PoorMansACData]):
             return PoorMansACData(temperature=t, humidity=rh)
 
         pressure = self._read_pressure()
-        x = calc.mixing_ratio(t, rh, pressure)
-        d_hi = calc.d_hi_cooling(t, x, pressure, self._dx_dt)
-        t_wb = calc.wet_bulb_temperature(t, x, pressure, self._dx_dt)
+        x = calc.specific_humidity(t, rh, pressure)
+        d_hi = calc.d_hi_cooling(t, x, pressure)
+        t_wb = calc.wet_bulb_temperature(t, x, pressure)
 
         return PoorMansACData(
             temperature=t,
             humidity=rh,
             pressure=pressure,
             absolute_humidity=calc.absolute_humidity(t, rh) * 1000.0,  # kg/m^3 -> g/m^3
-            mixing_ratio=x * 1000.0,  # expose in g_water/kg_air
+            specific_humidity=x * 1000.0,  # expose in g_water/kg_moist_air
             heat_index=calc.heat_index(t, x, pressure),
             wet_bulb_temperature=t_wb,
             wet_bulb_depression=t - t_wb,
-            optimal_water_uptake=calc.optimal_water_uptake(t, x, pressure, self._dx_dt)
-            * 1000.0,  # expose in g_water/kg_air
+            optimal_water_uptake=calc.optimal_water_uptake(t, x, pressure)
+            * 1000.0,  # expose in g_water/kg_moist_air
+            dx_dt=calc.process_line_slope(x),
             d_hi_dt=calc.d_hi_d_t(t, x, pressure),
             d_hi_dx=calc.d_hi_d_x(t, x, pressure),
             d_hi=d_hi,
